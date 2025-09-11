@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Ams.Media.Web")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+54ac7297ffb8081764251b09ef8ff722a8fd8354")]
 [assembly: System.Reflection.AssemblyProductAttribute("Ams.Media.Web")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Ams.Media.Web")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

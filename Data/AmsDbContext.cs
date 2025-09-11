@@ -14,7 +14,7 @@ namespace Ams.Media.Web.Data
         public DbSet<SecurityLog> SecurityLogs => Set<SecurityLog>();
         public DbSet<SecurityLogFile> SecurityLogFiles => Set<SecurityLogFile>();
 
-        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        protected override void OnModelCreating(ModelBuilder modelBuilder) 
         {
             base.OnModelCreating(modelBuilder);
 
