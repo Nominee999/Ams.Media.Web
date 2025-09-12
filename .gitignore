@@ -11,3 +11,5 @@ out/
 appsettings.*.local.json
 secrets.json
 *.pfx
+
+wwwroot/lib/
