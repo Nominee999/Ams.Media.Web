@@ -1,79 +1,66 @@
-﻿@* Partial เมนูบน: ดึงรายการจาก IMenuGate ตามสิทธิ์ผู้ใช้ *@
-@using Ams.Media.Web.Services
-@inject IMenuGate Gate
+﻿@using Ams.Media.Web.Models
+@inject Ams.Media.Web.Services.IMenuGate MenuGate
 
 @{
-    // group keys: M=Masterfiles, T=Transactions, R=Reports, E=Enquiry, S=Systems
-    var m = await Gate.GetSubMenusAsync("M", User);
-    var t = await Gate.GetSubMenusAsync("T", User);
-    var r = await Gate.GetSubMenusAsync("R", User);
-    var e = await Gate.GetSubMenusAsync("E", User);
-    var s = await Gate.GetSubMenusAsync("S", User);
+    var master = await MenuGate.GetSubMenusAsync("Master");
+    var transaction = await MenuGate.GetSubMenusAsync("Transaction");
+    var reports = await MenuGate.GetSubMenusAsync("Reports");
+    var systems = await MenuGate.GetSubMenusAsync("Systems");
 }
 
-<ul class="navbar-nav me-auto">
-    @if (m.Any())
-    {
-        <li class="nav-item dropdown">
-            <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Masterfiles</a>
-            <ul class="dropdown-menu">
-                @foreach (var it in m)
-                {
-                    <li><a class="dropdown-item" asp-controller="@it.Controller" asp-action="@it.Action">@it.Name</a></li>
-                }
-            </ul>
-        </li>
-    }
+<nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom">
+    <div class="container-fluid">
+        <a class="navbar-brand" asp-controller="Home" asp-action="Index">AMS Media</a>
 
-    @if (t.Any())
-    {
-        <li class="nav-item dropdown">
-            <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Transactions</a>
-            <ul class="dropdown-menu">
-                @foreach (var it in t)
-                {
-                    <li><a class="dropdown-item" asp-controller="@it.Controller" asp-action="@it.Action">@it.Name</a></li>
-                }
-            </ul>
-        </li>
-    }
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#topnav"
+                aria-controls="topnav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
 
-    @if (r.Any())
-    {
-        <li class="nav-item dropdown">
-            <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Reports</a>
-            <ul class="dropdown-menu">
-                @foreach (var it in r)
-                {
-                    <li><a class="dropdown-item" asp-controller="@it.Controller" asp-action="@it.Action">@it.Name</a></li>
-                }
-            </ul>
-        </li>
-    }
+        <div class="collapse navbar-collapse" id="topnav">
+            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
 
-    @if (e.Any())
-    {
-        <li class="nav-item dropdown">
-            <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Enquiry</a>
-            <ul class="dropdown-menu">
-                @foreach (var it in e)
-                {
-                    <li><a class="dropdown-item" asp-controller="@it.Controller" asp-action="@it.Action">@it.Name</a></li>
-                }
-            </ul>
-        </li>
-    }
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" id="ddMaster" role="button" data-bs-toggle="dropdown" aria-expanded="false">Master</a>
+                    <ul class="dropdown-menu" aria-labelledby="ddMaster">
+                        @foreach (var m in master)
+                        {
+                            <li><a class="dropdown-item" href="@m.Url">@m.Text</a></li>
+                        }
+                    </ul>
+                </li>
 
-    @if (s.Any())
-    {
-        <li class="nav-item dropdown">
-            <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Systems</a>
-            <ul class="dropdown-menu">
-                @foreach (var it in s)
-                {
-                    <li><a class="dropdown-item" asp-controller="@it.Controller" asp-action="@it.Action">@it.Name</a></li>
-                }
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" id="ddTrans" role="button" data-bs-toggle="dropdown" aria-expanded="false">Transaction</a>
+                    <ul class="dropdown-menu" aria-labelledby="ddTrans">
+                        @foreach (var m in transaction)
+                        {
+                            <li><a class="dropdown-item" href="@m.Url">@m.Text</a></li>
+                        }
+                    </ul>
+                </li>
+
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" id="ddReports" role="button" data-bs-toggle="dropdown" aria-expanded="false">Reports</a>
+                    <ul class="dropdown-menu" aria-labelledby="ddReports">
+                        @foreach (var m in reports)
+                        {
+                            <li><a class="dropdown-item" href="@m.Url">@m.Text</a></li>
+                        }
+                    </ul>
+                </li>
+
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" id="ddSystems" role="button" data-bs-toggle="dropdown" aria-expanded="false">Systems</a>
+                    <ul class="dropdown-menu" aria-labelledby="ddSystems">
+                        @foreach (var m in systems)
+                        {
+                            <li><a class="dropdown-item" href="@m.Url">@m.Text</a></li>
+                        }
+                    </ul>
+                </li>
+
             </ul>
-        </li>
-    }
-</ul>
+        </div>
+    </div>
+</nav>

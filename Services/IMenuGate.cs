@@ -1,13 +1,12 @@
-// D:\VS2022\Ams.Media.Web\Services\IMenuGate.cs
-using System.Security.Claims;
-using System.Threading.Tasks;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using Ams.Media.Web.Models;
 
 namespace Ams.Media.Web.Services
 {
     public interface IMenuGate
     {
-        Task<IReadOnlyList<MenuItemVm>> GetSubMenusAsync(string groupKey, ClaimsPrincipal user);
+        // ให้ _TopNav.cshtml เรียกใช้
+        Task<IReadOnlyList<MenuItemVm>> GetSubMenusAsync(string topKey);
     }
 }
