@@ -1,0 +1,39 @@
+@{
+    Layout = "_LayoutLogin";
+    ViewData["Title"] = "Sign in";
+    var returnUrl = ViewData["ReturnUrl"] as string ?? "/";
+}
+
+<h3 class="mb-3 text-center">AMS Media - Login</h3>
+
+<form asp-action="Login" asp-controller="Account" method="post" class="card shadow-sm p-4">
+    @Html.AntiForgeryToken()
+    <input type="hidden" name="returnUrl" value="@returnUrl" />
+
+    <div class="mb-3">
+        <label for="username" class="form-label">Username</label>
+        <input id="username" name="username" class="form-control" autocomplete="username" required />
+    </div>
+
+    <div class="mb-3">
+        <label for="password" class="form-label">Password</label>
+        <input id="password" name="password" type="password" class="form-control" autocomplete="current-password" required />
+    </div>
+
+    <button type="submit" class="btn btn-primary w-100">Login</button>
+
+    @if (!ViewData.ModelState.IsValid)
+    {
+        <div class="alert alert-danger mt-3">
+            @foreach (var err in ViewData.ModelState.SelectMany(x => x.Value!.Errors))
+            {
+                <div>@err.ErrorMessage</div>
+            }
+        </div>
+    }
+</form>
+
+<div class="text-muted small mt-3 text-center">
+    <p>Language: English / ภาษาไทย</p>
+    <p>Date Format: dd/MM/yyyy &nbsp; Time Format: HH:mm:ss</p>
+</div>

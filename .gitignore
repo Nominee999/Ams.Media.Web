@@ -1,0 +1,13 @@
+.vs/
+bin/
+obj/
+**/Debug/
+**/Release/
+**/TestResults/
+out/
+*.user
+*.suo
+*.log
+appsettings.*.local.json
+secrets.json
+*.pfx
