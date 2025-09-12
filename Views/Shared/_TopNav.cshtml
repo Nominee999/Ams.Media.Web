@@ -1,0 +1,79 @@
+﻿@* Partial เมนูบน: ดึงรายการจาก IMenuGate ตามสิทธิ์ผู้ใช้ *@
+@using Ams.Media.Web.Services
+@inject IMenuGate Gate
+
+@{
+    // group keys: M=Masterfiles, T=Transactions, R=Reports, E=Enquiry, S=Systems
+    var m = await Gate.GetSubMenusAsync("M", User);
+    var t = await Gate.GetSubMenusAsync("T", User);
+    var r = await Gate.GetSubMenusAsync("R", User);
+    var e = await Gate.GetSubMenusAsync("E", User);
+    var s = await Gate.GetSubMenusAsync("S", User);
+}
+
+<ul class="navbar-nav me-auto">
+    @if (m.Any())
+    {
+        <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Masterfiles</a>
+            <ul class="dropdown-menu">
+                @foreach (var it in m)
+                {
+                    <li><a class="dropdown-item" asp-controller="@it.Controller" asp-action="@it.Action">@it.Name</a></li>
+                }
+            </ul>
+        </li>
+    }
+
+    @if (t.Any())
+    {
+        <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Transactions</a>
+            <ul class="dropdown-menu">
+                @foreach (var it in t)
+                {
+                    <li><a class="dropdown-item" asp-controller="@it.Controller" asp-action="@it.Action">@it.Name</a></li>
+                }
+            </ul>
+        </li>
+    }
+
+    @if (r.Any())
+    {
+        <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Reports</a>
+            <ul class="dropdown-menu">
+                @foreach (var it in r)
+                {
+                    <li><a class="dropdown-item" asp-controller="@it.Controller" asp-action="@it.Action">@it.Name</a></li>
+                }
+            </ul>
+        </li>
+    }
+
+    @if (e.Any())
+    {
+        <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Enquiry</a>
+            <ul class="dropdown-menu">
+                @foreach (var it in e)
+                {
+                    <li><a class="dropdown-item" asp-controller="@it.Controller" asp-action="@it.Action">@it.Name</a></li>
+                }
+            </ul>
+        </li>
+    }
+
+    @if (s.Any())
+    {
+        <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Systems</a>
+            <ul class="dropdown-menu">
+                @foreach (var it in s)
+                {
+                    <li><a class="dropdown-item" asp-controller="@it.Controller" asp-action="@it.Action">@it.Name</a></li>
+                }
+            </ul>
+        </li>
+    }
+</ul>

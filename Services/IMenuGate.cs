@@ -1,14 +1,13 @@
-using System.Collections.Generic;
+// D:\VS2022\Ams.Media.Web\Services\IMenuGate.cs
 using System.Security.Claims;
 using System.Threading.Tasks;
+using System.Collections.Generic;
+using Ams.Media.Web.Models;
 
 namespace Ams.Media.Web.Services
 {
     public interface IMenuGate
     {
-        /// <summary>
-        /// คืนเมนูแยกกลุ่ม: M/T/R/E/S ตามสิทธิ์ของผู้ใช้
-        /// </summary>
-        Task<Dictionary<string, IReadOnlyList<MenuItemVm>>> GetAllAsync(ClaimsPrincipal user);
+        Task<IReadOnlyList<MenuItemVm>> GetSubMenusAsync(string groupKey, ClaimsPrincipal user);
     }
 }
