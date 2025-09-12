@@ -64,97 +64,100 @@ namespace Ams.Media.Web.Data
                 e.Property(x => x.Sections).HasColumnName("sections");
             });
 
-            // -------- Security_menu --------
+            // security_menu
             modelBuilder.Entity<SecurityMenu>(e =>
             {
                 e.ToTable("Security_menu");
                 e.HasKey(x => x.Username);
-
                 e.Property(x => x.Username).HasColumnName("username");
 
-                e.Property(x => x.MCurrency).HasColumnName("mcurrency");
-                e.Property(x => x.MTarget).HasColumnName("mtarget");
-                e.Property(x => x.MLanguage).HasColumnName("mlanguage");
-                e.Property(x => x.MStation).HasColumnName("mstation");
-                e.Property(x => x.MLoading).HasColumnName("mloading");
-                e.Property(x => x.MMedia).HasColumnName("mmedia");
-                e.Property(x => x.MClient).HasColumnName("mclient");
-                e.Property(x => x.MCampaign).HasColumnName("mcampaign");
-                e.Property(x => x.MProduct).HasColumnName("mproduct");
-                e.Property(x => x.MVendor).HasColumnName("mvendor");
-                e.Property(x => x.MRateCode).HasColumnName("mratecode");
-                e.Property(x => x.MProgramType).HasColumnName("mprogramtype");
-                e.Property(x => x.MRateItem).HasColumnName("mrateitem");
-                e.Property(x => x.MMaterial).HasColumnName("mmaterial");
-                e.Property(x => x.MTax).HasColumnName("mtax");
-                e.Property(x => x.MBooking).HasColumnName("mbooking");
-                e.Property(x => x.MPackage).HasColumnName("mpackage");
-                e.Property(x => x.MDayPart).HasColumnName("mdaypart");
-                e.Property(x => x.MCirculation).HasColumnName("mcirculation");
-                e.Property(x => x.MSpotType).HasColumnName("mspottype");
-                e.Property(x => x.MProgramMaster).HasColumnName("mprogrammaster");
+                // Masterfiles
+                e.Property(x => x.Mcurrency).HasColumnName("mcurrency");
+                e.Property(x => x.Mtarget).HasColumnName("mtarget");
+                e.Property(x => x.Mlanguage).HasColumnName("mlanguage");
+                e.Property(x => x.Mstation).HasColumnName("mstation");
+                e.Property(x => x.Mloading).HasColumnName("mloading");
+                e.Property(x => x.Mmedia).HasColumnName("mmedia");
+                e.Property(x => x.Mclient).HasColumnName("mclient");
+                e.Property(x => x.Mcampaign).HasColumnName("mcampaign");
+                e.Property(x => x.Mproduct).HasColumnName("mproduct");
+                e.Property(x => x.Mvendor).HasColumnName("mvendor");
+                e.Property(x => x.Mratecode).HasColumnName("mratecode");
+                e.Property(x => x.Mprogramtype).HasColumnName("mprogramtype");
+                e.Property(x => x.Mrateitem).HasColumnName("mrateitem");
+                e.Property(x => x.Mmaterial).HasColumnName("mmaterial");
+                e.Property(x => x.Mtax).HasColumnName("mtax");
+                e.Property(x => x.Mbooking).HasColumnName("mbooking");
+                e.Property(x => x.Mpackage).HasColumnName("mpackage");
+                e.Property(x => x.Mdaypart).HasColumnName("mdaypart");
+                e.Property(x => x.Mcirculation).HasColumnName("mcirculation");
+                e.Property(x => x.Mspottype).HasColumnName("mspottype");
+                e.Property(x => x.Mprogrammaster).HasColumnName("mprogrammaster");
 
-                e.Property(x => x.TNew).HasColumnName("tnew");
-                e.Property(x => x.TDelete).HasColumnName("tdelete");
-                e.Property(x => x.TBudget).HasColumnName("tbudget");
-                e.Property(x => x.TSelectInvoice).HasColumnName("tselectinvoice");
-                e.Property(x => x.TSelectOrder).HasColumnName("tselectorder");
-                e.Property(x => x.TRefresh).HasColumnName("trefresh");
-                e.Property(x => x.TDeleteItem).HasColumnName("tdeleteitem");
-                e.Property(x => x.TJob).HasColumnName("tjob");
-                e.Property(x => x.TSchedule).HasColumnName("tschedule");
+                // Transactions
+                e.Property(x => x.Tnew).HasColumnName("tnew");
+                e.Property(x => x.Tdelete).HasColumnName("tdelete");
+                e.Property(x => x.Tbudget).HasColumnName("tbudget");
+                e.Property(x => x.Tselectinvoice).HasColumnName("tselectinvoice");
+                e.Property(x => x.Tselectorder).HasColumnName("tselectorder");
+                e.Property(x => x.Trefresh).HasColumnName("trefresh");
+                e.Property(x => x.Tdeleteitem).HasColumnName("tdeleteitem");
+                e.Property(x => x.Tjob).HasColumnName("tjob");
+                e.Property(x => x.Tschedule).HasColumnName("tschedule");
 
-                e.Property(x => x.RMasterReport).HasColumnName("rmasterreport");
-                e.Property(x => x.RPurchase).HasColumnName("rpurchase");
-                e.Property(x => x.RAmendment).HasColumnName("ramendment");
-                e.Property(x => x.RReports).HasColumnName("rreports");
-                e.Property(x => x.RInvoice).HasColumnName("rinvoice");
-                e.Property(x => x.RRevenue).HasColumnName("rrevenue");
-                e.Property(x => x.RExpense).HasColumnName("rexpense");
-                e.Property(x => x.RBilling).HasColumnName("rbilling");
-                e.Property(x => x.RMargin).HasColumnName("rmargin");
-                e.Property(x => x.RChecklist).HasColumnName("rchecklist");
-                e.Property(x => x.RCheckReport).HasColumnName("rcheckreport");
-                e.Property(x => x.RMonitor).HasColumnName("rmonitor");
-                e.Property(x => x.ROrder).HasColumnName("rorder");
-                e.Property(x => x.RJob).HasColumnName("rjob");
-                e.Property(x => x.RSchedule).HasColumnName("rschedule");
+                // Reports
+                e.Property(x => x.Rmasterreport).HasColumnName("rmasterreport");
+                e.Property(x => x.Rpurchase).HasColumnName("rpurchase");
+                e.Property(x => x.Ramendment).HasColumnName("ramendment");
+                e.Property(x => x.Rreports).HasColumnName("rreports");
+                e.Property(x => x.Rinvoice).HasColumnName("rinvoice");
+                e.Property(x => x.Rrevenue).HasColumnName("rrevenue");
+                e.Property(x => x.Rexpense).HasColumnName("rexpense");
+                e.Property(x => x.Rbilling).HasColumnName("rbilling");
+                e.Property(x => x.Rmargin).HasColumnName("rmargin");
+                e.Property(x => x.Rchecklist).HasColumnName("rchecklist");
+                e.Property(x => x.Rcheckreport).HasColumnName("rcheckreport");
+                e.Property(x => x.Rmonitor).HasColumnName("rmonitor");
+                e.Property(x => x.Rorder).HasColumnName("rorder");
+                e.Property(x => x.Rjob).HasColumnName("rjob");
+                e.Property(x => x.Rschedule).HasColumnName("rschedule");
 
-                e.Property(x => x.EPurchase).HasColumnName("epurchase");
-                e.Property(x => x.EInvoice).HasColumnName("einvoice");
-                e.Property(x => x.ERating).HasColumnName("erating");
-                e.Property(x => x.EReach).HasColumnName("ereach");
+                // Enquiry
+                e.Property(x => x.Epurchase).HasColumnName("epurchase");
+                e.Property(x => x.Einvoice).HasColumnName("einvoice");
+                e.Property(x => x.Erating).HasColumnName("erating");
+                e.Property(x => x.Ereach).HasColumnName("ereach");
 
-                e.Property(x => x.SSetup).HasColumnName("ssetup");
-                e.Property(x => x.SBackup).HasColumnName("sbackup");
-                e.Property(x => x.SRating).HasColumnName("srating");
-                e.Property(x => x.SReach).HasColumnName("sreach");
+                // Systems & misc.
+                e.Property(x => x.Ssetup).HasColumnName("ssetup");
+                e.Property(x => x.Sbackup).HasColumnName("sbackup");
+                e.Property(x => x.Srating).HasColumnName("srating");
+                e.Property(x => x.Sreach).HasColumnName("sreach");
+                e.Property(x => x.Saddins).HasColumnName("saddins");
+                e.Property(x => x.Saddins1).HasColumnName("saddins1");
+                e.Property(x => x.Saddins2).HasColumnName("saddins2");
+                e.Property(x => x.Saddins3).HasColumnName("saddins3");
+                e.Property(x => x.Saddins4).HasColumnName("saddins4");
+                e.Property(x => x.Saddins5).HasColumnName("saddins5");
+                e.Property(x => x.Saddins6).HasColumnName("saddins6");
+                e.Property(x => x.Saddins7).HasColumnName("saddins7");
+                e.Property(x => x.Saddins8).HasColumnName("saddins8");
+                e.Property(x => x.Saddins9).HasColumnName("saddins9");
+                e.Property(x => x.Saddins10).HasColumnName("saddins10");
 
-                e.Property(x => x.SAddins).HasColumnName("saddins");
-                e.Property(x => x.SAddins1).HasColumnName("saddins1");
-                e.Property(x => x.SAddins2).HasColumnName("saddins2");
-                e.Property(x => x.SAddins3).HasColumnName("saddins3");
-                e.Property(x => x.SAddins4).HasColumnName("saddins4");
-                e.Property(x => x.SAddins5).HasColumnName("saddins5");
-                e.Property(x => x.SAddins6).HasColumnName("saddins6");
-                e.Property(x => x.SAddins7).HasColumnName("saddins7");
-                e.Property(x => x.SAddins8).HasColumnName("saddins8");
-                e.Property(x => x.SAddins9).HasColumnName("saddins9");
-                e.Property(x => x.SAddins10).HasColumnName("saddins10");
-
-                e.Property(x => x.ExDtl).HasColumnName("exdtl");
-                e.Property(x => x.ExTv3).HasColumnName("extv3");
-                e.Property(x => x.ExTv7).HasColumnName("extv7");
-
-                e.Property(x => x.PImport).HasColumnName("pimport");
-                e.Property(x => x.PMapping).HasColumnName("pmapping");
-                e.Property(x => x.PMList).HasColumnName("pmlist");
-                e.Property(x => x.PMReport).HasColumnName("pmreport");
-                e.Property(x => x.PEarianna).HasColumnName("pearianna");
-                e.Property(x => x.PEMatched).HasColumnName("pematched");
-                e.Property(x => x.PEReport).HasColumnName("pereport");
-                e.Property(x => x.PEReach).HasColumnName("pereach");
+                e.Property(x => x.Exdtl).HasColumnName("exdtl");
+                e.Property(x => x.Extv3).HasColumnName("extv3");
+                e.Property(x => x.Extv7).HasColumnName("extv7");
+                e.Property(x => x.Pimport).HasColumnName("pimport");
+                e.Property(x => x.Pmapping).HasColumnName("pmapping");
+                e.Property(x => x.Pmlist).HasColumnName("pmlist");
+                e.Property(x => x.Pmreport).HasColumnName("pmreport");
+                e.Property(x => x.Pearianna).HasColumnName("pearianna");
+                e.Property(x => x.Pematched).HasColumnName("pematched");
+                e.Property(x => x.Pereport).HasColumnName("pereport");
+                e.Property(x => x.Pereach).HasColumnName("pereach");
             });
+
 
             // -------- Security_Log --------
             modelBuilder.Entity<SecurityLog>(e =>
