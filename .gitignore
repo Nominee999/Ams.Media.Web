@@ -1,0 +1,17 @@
+﻿# Visual Studio / .NET
+.vs/
+*.user
+*.suo
+*.sln.docstates
+Ams.Media.Web.csproj.user
+
+# Build output
+bin/
+obj/
+**/bin/
+**/obj/
+
+# Tools / temp
+patch.diff
+apply_ams_fix.ps1
+navin_full_bundle.txt

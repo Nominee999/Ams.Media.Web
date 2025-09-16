@@ -1,2 +1,0 @@
-wwwroot\css\site.css
-wwwroot\img\ams_logo.png
