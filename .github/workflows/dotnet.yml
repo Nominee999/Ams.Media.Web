@@ -1,0 +1,19 @@
+- name: LibMan restore
+  run: dotnet tool restore && dotnet tool run libman restore
+
+---
+
+## คำสั่งรวม (สร้างสาขา + commit + PR)
+```bash
+git checkout -b chore/hardening-and-placeholders
+# วางไฟล์ด้านบนตาม path:
+# .github/CODEOWNERS
+# .editorconfig
+# appsettings.Development.json.example
+# Controllers/PlaceholderController.cs
+# Views/Placeholder/Show.cshtml
+# (ถ้าใช้) libman.json
+
+git add .
+git commit -m "chore: harden repo (CODEOWNERS, editorconfig) + dev appsettings example + placeholder routes + healthcheck"
+git push -u origin chore/hardening-and-placeholders

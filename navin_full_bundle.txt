@@ -1,0 +1,1352 @@
+﻿===== BUNDLE 2025-09-16 11:25:25 =====
+
+===== FILE: Ams.Media.Web.csproj =====
+
+<Project Sdk="Microsoft.NET.Sdk.Web">
+	<PropertyGroup>
+		<TargetFramework>net8.0</TargetFramework>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<InvariantGlobalization>false</InvariantGlobalization>
+	</PropertyGroup>
+	<ItemGroup>
+		<PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
+
+		<PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="8.0.6" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="8.0.6">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+		<PackageReference Include="Microsoft.Extensions.Localization" Version="8.0.6" />
+		<PackageReference Include="Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation" Version="8.0.6" />
+	</ItemGroup>
+	<ItemGroup>
+	  <Folder Include="Views\Masterfiles\" />
+	  <Folder Include="Views\Auth\" />
+	</ItemGroup>
+</Project>
+
+
+===== FILE: Ams.Media.Web.sln =====
+
+
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36414.22
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ams.Media.Web", "Ams.Media.Web.csproj", "{96B05CCC-3176-9CA7-AD1C-86F3E33676B2}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{96B05CCC-3176-9CA7-AD1C-86F3E33676B2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{96B05CCC-3176-9CA7-AD1C-86F3E33676B2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{96B05CCC-3176-9CA7-AD1C-86F3E33676B2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{96B05CCC-3176-9CA7-AD1C-86F3E33676B2}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {8FCE4981-C419-49E4-AFA9-155B529025F1}
+	EndGlobalSection
+EndGlobal
+
+
+===== FILE: appsettings.json =====
+
+{
+  "ConnectionStrings": {
+    "AmsDb": "Server=F15;Database=AMSDB_PRESENT;User Id=ams;Password=agencysoft;TrustServerCertificate=True;MultipleActiveResultSets=True"
+  },
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "AllowedHosts": "*",
+  "Auth": {
+    "PasswordMode": "Plain"
+  }
+}
+
+
+===== FILE: Program.cs =====
+
+using System.Globalization;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Localization;
+using Microsoft.EntityFrameworkCore;
+using Ams.Media.Web.Data;
+using Ams.Media.Web.Services;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// MVC + RuntimeCompilation (สะดวกช่วง Dev)
+builder.Services.AddControllersWithViews().AddRazorRuntimeCompilation();
+
+// EF Core SQL Server
+builder.Services.AddDbContext<AmsDbContext>(opt =>
+    opt.UseSqlServer(builder.Configuration.GetConnectionString("AmsDb")));
+
+
+
+
+// Cookie Auth
+builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddCookie(options =>
+    {
+        options.LoginPath = "/Account/Login";
+        options.AccessDeniedPath = "/Account/Denied";
+        options.SlidingExpiration = true;
+        options.ExpireTimeSpan = TimeSpan.FromHours(8);
+        // กัน 400 จาก cookie size ใหญ่ผิดปกติ
+        options.Cookie.Name = ".Ams.Media.Auth";
+        options.Cookie.HttpOnly = true;
+        options.Cookie.SameSite = SameSiteMode.Lax;
+    });
+
+// Localization (EN/TH)
+builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
+
+// Services กลาง
+builder.Services.AddSingleton<IDateTimeHelper, DateTimeHelper>();
+builder.Services.AddScoped<IMenuGate, MenuGate>();
+builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IQueryService, QueryService>();
+builder.Services.AddControllersWithViews();
+builder.Services.AddAuthorization();
+
+
+var app = builder.Build();
+
+// ใช้ Culture: en-US, th-TH (Default = en-US) + CE Calendar
+var supportedCultures = new[] { new CultureInfo("en-US"), new CultureInfo("th-TH") };
+app.UseRequestLocalization(new RequestLocalizationOptions
+{
+    DefaultRequestCulture = new RequestCulture("en-US"),
+    SupportedCultures = supportedCultures,
+    SupportedUICultures = supportedCultures
+});
+
+if (!app.Environment.IsDevelopment())
+{
+    app.UseExceptionHandler("/Home/Error");
+    app.UseHsts();
+}
+
+app.UseHttpsRedirection();
+app.UseStaticFiles();
+app.UseRouting();
+app.UseAuthentication();
+app.UseAuthorization();
+
+app.MapControllerRoute(
+    name: "default",
+    pattern: "{controller=Account}/{action=Login}/{id?}");
+
+app.Run();
+
+
+===== FILE: .config\dotnet-tools.json =====
+
+{
+  "version": 1,
+  "isRoot": true,
+  "tools": {
+    "microsoft.web.librarymanager.cli": {
+      "version": "3.0.71",
+      "commands": [
+        "libman"
+      ],
+      "rollForward": false
+    }
+  }
+}
+
+===== FILE: .github\workflows\dotnet-ci.yml =====
+
+name: .NET CI
+
+on:
+  push:
+    branches:
+      - master
+      - main
+      - develop
+      - 'feature/**'
+      - 'fix/**'
+      - 'chore/**'
+  pull_request:
+    branches:
+      - master
+      - main
+      - develop
+  workflow_dispatch: {}   # << เธ—เธณเนเธซเนเธกเธตเธเธธเนเธก Run workflow เนเธเนเธ—เนเธ Actions
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore
+        run: dotnet restore
+
+      # (เธ–เนเธฒเนเธเน LibMan เนเธซเนเน€เธญเธฒ comment เธญเธญเธเธชเธญเธเธเธฃเธฃเธ—เธฑเธ”เธ”เนเธฒเธเธฅเนเธฒเธ)
+      # - name: LibMan restore
+      #   run: dotnet tool restore && libman restore
+
+      - name: Build (Release)
+        run: dotnet build --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test --no-build --verbosity normal
+
+
+===== FILE: .github\workflows\dotnet.yml =====
+
+- name: LibMan restore
+  run: dotnet tool restore && dotnet tool run libman restore
+
+---
+
+## เธเธณเธชเธฑเนเธเธฃเธงเธก (เธชเธฃเนเธฒเธเธชเธฒเธเธฒ + commit + PR)
+```bash
+git checkout -b chore/hardening-and-placeholders
+# เธงเธฒเธเนเธเธฅเนเธ”เนเธฒเธเธเธเธ•เธฒเธก path:
+# .github/CODEOWNERS
+# .editorconfig
+# appsettings.Development.json.example
+# Controllers/PlaceholderController.cs
+# Views/Placeholder/Show.cshtml
+# (เธ–เนเธฒเนเธเน) libman.json
+
+git add .
+git commit -m "chore: harden repo (CODEOWNERS, editorconfig) + dev appsettings example + placeholder routes + healthcheck"
+git push -u origin chore/hardening-and-placeholders
+
+
+===== FILE: Controllers\AccountController.cs =====
+
+using System.Threading.Tasks;
+using Ams.Media.Web.Data;
+using Ams.Media.Web.Services;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+
+namespace Ams.Media.Web.Controllers
+{
+    [AllowAnonymous]
+    public class AccountController : Controller
+    {
+        private readonly AmsDbContext _db;          // เผื่อใช้กรณีอื่นในอนาคต
+        private readonly IAuthService _auth;
+        private readonly ILogger<AccountController> _logger;
+
+        public AccountController(AmsDbContext db, IAuthService auth, ILogger<AccountController> logger)
+        {
+            _db = db;
+            _auth = auth;
+            _logger = logger;
+        }
+
+        // ===== Login (GET) =====
+        // รองรับ ?ReturnUrl=... เสมอ ป้องกัน 400 BadRequest เวลา framework แนบ returnUrl มา
+        [HttpGet]
+        public IActionResult Login(string? returnUrl = null)
+        {
+            ViewData["ReturnUrl"] = returnUrl;
+            return View();
+        }
+
+        // ===== Login (POST) =====
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Login(string username, string password, string? returnUrl = null)
+        {
+            if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
+            {
+                ModelState.AddModelError("", "Please enter username and password.");
+                ViewData["ReturnUrl"] = returnUrl;
+                return View();
+            }
+
+            var (ok, message, principal) = await _auth.ValidateAsync(username, password);
+
+            if (!ok || principal == null)
+            {
+                // กรณี Single-Login ปฏิเสธ จะส่งข้อความบอกว่าเข้าใช้งานที่เครื่องอื่นอยู่
+                ModelState.AddModelError("", message);
+                ViewData["ReturnUrl"] = returnUrl;
+                return View();
+            }
+
+            await HttpContext.SignInAsync(
+                CookieAuthenticationDefaults.AuthenticationScheme,
+                principal);
+
+            return RedirectToLocal(returnUrl);
+        }
+
+        // ===== Logout (POST) =====
+        [Authorize]
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Logout()
+        {
+            var uname = User?.Identity?.Name ?? "";
+
+            // ลบ session ปัจจุบันออกจาก Security_Log ตามกติกาข้อ 3
+            if (!string.IsNullOrWhiteSpace(uname))
+            {
+                try
+                {
+                    await _auth.LogoutLogAsync(uname);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "LogoutLogAsync failed for user {User}", uname);
+                    // ต่อให้ลบ log ไม่สำเร็จ ก็ต้อง sign-out ผู้ใช้ให้ได้
+                }
+            }
+
+            await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            return RedirectToAction(nameof(Login));
+        }
+
+        // ===== Access Denied (เผื่อ pipeline เรียก) =====
+        [HttpGet]
+        public IActionResult Denied()
+            => View();
+
+        private IActionResult RedirectToLocal(string? returnUrl)
+        {
+            if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))
+                return Redirect(returnUrl);
+
+            // จุดเริ่มต้นหลัง login (ปรับตามต้องการ)
+            return RedirectToAction("Index", "Home");
+        }
+    }
+}
+
+
+===== FILE: Controllers\HomeController.cs =====
+
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+
+namespace Ams.Media.Web.Controllers
+{
+    [Authorize]
+    public class HomeController : Controller
+    {
+        public IActionResult Index() => View();
+    }
+}
+
+
+===== FILE: Data\AmsDbContext.cs =====
+
+using Ams.Media.Web.Models;
+using Microsoft.EntityFrameworkCore;
+
+namespace Ams.Media.Web.Data
+{
+    public class AmsDbContext : DbContext
+    {
+        public AmsDbContext(DbContextOptions<AmsDbContext> options) : base(options) { }
+
+        // DbSets
+         
+
+        public DbSet<SecurityUser> SecurityUsers => Set<SecurityUser>();
+        public DbSet<SecurityMenu> SecurityMenus => Set<SecurityMenu>();
+        public DbSet<SecurityLog> SecurityLogs => Set<SecurityLog>();
+
+        public DbSet<SecurityLogFile> SecurityLogFiles => Set<SecurityLogFile>();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            base.OnModelCreating(modelBuilder);
+
+
+
+            // security_user
+            modelBuilder.Entity<SecurityUser>(e =>
+            {
+                e.ToTable("security_user");
+                e.HasKey(x => x.Username);                    // ถ้าไม่มี PK ให้ใช้ e.HasNoKey();
+                e.Property(x => x.Username).HasColumnName("username");
+                e.Property(x => x.Password).HasColumnName("password");
+                e.Property(x => x.Department).HasColumnName("department");
+
+                e.Property(x => x.Masterfiles).HasColumnName("masterfiles");
+                e.Property(x => x.Transactions).HasColumnName("transactions");
+                e.Property(x => x.Reports).HasColumnName("reports");
+                e.Property(x => x.Enquirys).HasColumnName("enquirys");
+                e.Property(x => x.Systems).HasColumnName("systems");
+                e.Property(x => x.Addinss).HasColumnName("addinss");
+                e.Property(x => x.Exports).HasColumnName("exports");
+                e.Property(x => x.Approved).HasColumnName("approved");
+
+                e.Property(x => x.Addnew).HasColumnName("addnew");
+                e.Property(x => x.Modify).HasColumnName("modify");
+                e.Property(x => x.Deleted).HasColumnName("deleted");
+                e.Property(x => x.Change).HasColumnName("change");
+                e.Property(x => x.Levels).HasColumnName("levels");
+                e.Property(x => x.Utility).HasColumnName("utility");
+                e.Property(x => x.Report).HasColumnName("report");
+                e.Property(x => x.Finance).HasColumnName("finance");
+                e.Property(x => x.Postcheck).HasColumnName("postcheck");
+                e.Property(x => x.Sections).HasColumnName("sections");
+            });
+
+            // security_menu
+            modelBuilder.Entity<SecurityMenu>(e =>
+            {
+                e.ToTable("security_menu");
+                // ถ้าไม่มีคีย์ในตาราง ให้ใช้ HasNoKey()
+                // e.HasNoKey();
+
+                e.Property(x => x.MCurrency).HasColumnName("mcurrency");
+                e.Property(x => x.MClient).HasColumnName("mclient");
+                e.Property(x => x.MCampaign).HasColumnName("mcampaign");
+                e.Property(x => x.MProduct).HasColumnName("mproduct");
+                e.Property(x => x.MStation).HasColumnName("mstation");
+                e.Property(x => x.MTargetGroup).HasColumnName("mtargetgroup");
+                e.Property(x => x.MLanguage).HasColumnName("mlanguage");
+                e.Property(x => x.MMaterial).HasColumnName("mmaterial");
+                e.Property(x => x.MMediaType).HasColumnName("mmediatype");
+                e.Property(x => x.MVendor).HasColumnName("mvendor");
+                e.Property(x => x.MRateCode).HasColumnName("mratecode");
+                e.Property(x => x.MProgramType).HasColumnName("mprogramtype");
+                e.Property(x => x.MRateItem).HasColumnName("mrateitem");
+                e.Property(x => x.MBooking).HasColumnName("mbooking");
+                e.Property(x => x.MTax).HasColumnName("mtax");
+                e.Property(x => x.MDayPart).HasColumnName("mdaypart");
+
+                e.Property(x => x.TNew).HasColumnName("tnew");
+                e.Property(x => x.TDelete).HasColumnName("tdelete");
+                e.Property(x => x.TBudget).HasColumnName("tbudget");
+                e.Property(x => x.TSelectOrder).HasColumnName("tselectorder");
+                e.Property(x => x.TSelectInvoice).HasColumnName("tselectinvoice");
+                e.Property(x => x.TRefresh).HasColumnName("trefresh");
+
+                e.Property(x => x.RMaster).HasColumnName("rmaster");
+                e.Property(x => x.RPurchase).HasColumnName("rpurchase");
+                e.Property(x => x.RAmendment).HasColumnName("ramendment");
+                e.Property(x => x.RInvoice).HasColumnName("rinvoice");
+                e.Property(x => x.RScheduleFlow).HasColumnName("rscheduleflow");
+                e.Property(x => x.RRevenue).HasColumnName("rrevenue");
+                e.Property(x => x.RExpense).HasColumnName("rexpense");
+                e.Property(x => x.RJob).HasColumnName("rjob");
+                e.Property(x => x.RSchedule).HasColumnName("rschedule");
+                e.Property(x => x.RPurchaseRpt).HasColumnName("rpurchasereport");
+                e.Property(x => x.RBilling).HasColumnName("rbilling");
+                e.Property(x => x.RAgencyMargin).HasColumnName("rmargin");
+                e.Property(x => x.RMonitor).HasColumnName("rmonitor");
+
+                e.Property(x => x.EPurchase).HasColumnName("epurchase");
+                e.Property(x => x.EInvoice).HasColumnName("einvoice");
+                e.Property(x => x.ETVRating).HasColumnName("etvrating");
+                e.Property(x => x.EReach).HasColumnName("ereach");
+
+                e.Property(x => x.SSetup).HasColumnName("ssetup");
+                e.Property(x => x.SImportTVA).HasColumnName("simporttvarating");
+                e.Property(x => x.SImportArena).HasColumnName("simporttvarating_arena");
+                e.Property(x => x.SBackup).HasColumnName("sbackup");
+
+            });
+
+            // Security_log
+            modelBuilder.Entity<SecurityLog>(e =>
+            {
+                e.ToTable("Security_log");
+                e.HasNoKey(); // ตาราง Log มักไม่มี PK
+                e.Property(x => x.Username).HasColumnName("username");
+                e.Property(x => x.UserDateTime).HasColumnName("userdatetime");
+                e.Property(x => x.ComputerName).HasColumnName("computername");
+                e.Property(x => x.Processing).HasColumnName("processing");
+            });
+
+            // SECURITY_LOGFILE
+            modelBuilder.Entity<SecurityLogFile>(e =>
+            {
+                e.ToTable("SECURITY_LOGFILE");
+                e.HasNoKey();
+                e.Property(x => x.ProgramName).HasColumnName("programname");
+                e.Property(x => x.Username).HasColumnName("username");
+                e.Property(x => x.ComputerName).HasColumnName("computername");
+                e.Property(x => x.Menu).HasColumnName("menu");
+                e.Property(x => x.AuditType).HasColumnName("audittype");
+                e.Property(x => x.AuditDate).HasColumnName("auditdate");
+
+                e.Property(x => x.M_ScheduleNo).HasColumnName("m_scheduleno");
+                e.Property(x => x.M_OrderNo).HasColumnName("m_orderno");
+                e.Property(x => x.M_InvoiceNo).HasColumnName("m_invoiceno");
+                e.Property(x => x.P_JobNo).HasColumnName("p_jobno");
+                e.Property(x => x.P_InvoiceNo).HasColumnName("p_invoiceno");
+                e.Property(x => x.Fi_JournalNo).HasColumnName("fi_journalno");
+                e.Property(x => x.Fi_PrevUser).HasColumnName("fi_prevuser");
+                e.Property(x => x.Fi_PrevDate).HasColumnName("fi_prevdate");
+                e.Property(x => x.Item_Id).HasColumnName("item_id");
+            });
+        }
+    }
+}
+
+
+===== FILE: Models\SecurityLog.cs =====
+
+using System;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+
+namespace Ams.Media.Web.Models
+{
+    [Table("Security_Log")]
+    public class SecurityLog
+    {
+        [Key]
+        [Column("username")]
+        [StringLength(40)]
+        public string Username { get; set; } = string.Empty;
+
+        [Column("userdatetime")]
+        public DateTime? UserDateTime { get; set; }
+
+        [Column("computername")]
+        [StringLength(50)]
+        public string? ComputerName { get; set; }
+
+        [Column("processing")]
+        [StringLength(50)]
+        public string? Processing { get; set; }
+    }
+}
+
+
+===== FILE: Models\SecurityLogFile.cs =====
+
+using System.ComponentModel.DataAnnotations.Schema;
+
+namespace Ams.Media.Web.Models
+{
+    [Table("SECURITY_LOGFILE")]
+    public class SecurityLogFile
+    {
+        public string? ProgramName { get; set; } // programname
+        public string? Username { get; set; } // username
+        public string? ComputerName { get; set; } // computername
+        public string? Menu { get; set; } // menu
+        public string? AuditType { get; set; } // audittype
+        public DateTime? AuditDate { get; set; } // auditdate
+
+        public string? M_ScheduleNo { get; set; } // m_scheduleno
+        public string? M_OrderNo { get; set; } // m_orderno
+        public string? M_InvoiceNo { get; set; } // m_invoiceno
+        public string? P_JobNo { get; set; } // p_jobno
+        public string? P_InvoiceNo { get; set; } // p_invoiceno
+
+        public string? Fi_JournalNo { get; set; } // fi_journalno
+        public string? Fi_PrevUser { get; set; } // fi_prevuser
+        public DateTime? Fi_PrevDate { get; set; } // fi_prevdate
+
+        public int? Item_Id { get; set; } // item_id
+    }
+}
+
+
+===== FILE: Models\SecurityMenu.cs =====
+
+using System.ComponentModel.DataAnnotations.Schema;
+
+namespace Ams.Media.Web.Models
+{
+    [Table("security_menu")]
+    public class SecurityMenu
+    {
+        // ฟิลด์เมนูย่อยทั้งหมดเป็น flag '1'/'0' (string)
+        // ตัวอย่างหลัก ๆ (เติมเพิ่มได้ตามสคริปต์)
+        public int Id { get; set; } // ถ้าตารางไม่มี identity ให้เอาออก และ HasNoKey() ใน DbContext
+
+        // Masterfiles (ขึ้นต้น m…)
+        public string? MCurrency { get; set; } // mcurrency
+        public string? MClient { get; set; } // mclient
+        public string? MCampaign { get; set; } // mcampaign
+        public string? MProduct { get; set; } // mproduct
+        public string? MStation { get; set; } // mstation
+        public string? MTargetGroup { get; set; } // mtargetgroup
+        public string? MLanguage { get; set; } // mlanguage
+        public string? MMaterial { get; set; } // mmaterial
+        public string? MMediaType { get; set; } // mmediatype
+        public string? MVendor { get; set; } // mvendor
+        public string? MRateCode { get; set; } // mratecode
+        public string? MProgramType { get; set; } // mprogramtype
+        public string? MRateItem { get; set; } // mrateitem
+        public string? MBooking { get; set; } // mbooking
+        public string? MTax { get; set; } // mtax
+        public string? MDayPart { get; set; } // mdaypart
+
+        // Transactions (ขึ้นต้น t…)
+        public string? TNew { get; set; } // tnew
+        public string? TDelete { get; set; } // tdelete
+        public string? TBudget { get; set; } // tbudget (Define Schedule)
+        public string? TSelectOrder { get; set; } // tselectorder
+        public string? TSelectInvoice { get; set; } // tselectinvoice
+        public string? TRefresh { get; set; } // trefresh
+
+        // Reports (ขึ้นต้น r…)
+        public string? RMaster { get; set; } // rmaster
+        public string? RPurchase { get; set; } // rpurchase
+        public string? RAmendment { get; set; } // ramendment
+        public string? RInvoice { get; set; } // rinvoice
+        public string? RScheduleFlow { get; set; } // rscheduleflow
+        public string? RRevenue { get; set; } // rrevenue
+        public string? RExpense { get; set; } // rexpense
+        public string? RJob { get; set; } // rjob
+        public string? RSchedule { get; set; } // rschedule
+        public string? RPurchaseRpt { get; set; } // rpurchasereport
+        public string? RBilling { get; set; } // rbilling
+        public string? RAgencyMargin { get; set; } // rmargin
+        public string? RMonitor { get; set; } // rmonitor
+
+        // Enquiry (ขึ้นต้น e…)
+        public string? EPurchase { get; set; } // epurchase
+        public string? EInvoice { get; set; } // einvoice
+        public string? ETVRating { get; set; } // etvrating
+        public string? EReach { get; set; } // ereach
+
+        // Systems (ขึ้นต้น s…)
+        public string? SSetup { get; set; } // ssetup
+        public string? SImportTVA { get; set; } // simporttvarating
+        public string? SImportArena { get; set; } // simporttvarating_arena
+        public string? SBackup { get; set; } // sbackup (ถ้ามี)
+    }
+}
+
+
+===== FILE: Models\SecurityUser.cs =====
+
+using System.ComponentModel.DataAnnotations.Schema;
+
+namespace Ams.Media.Web.Models
+{
+    [Table("security_user")]
+    public class SecurityUser
+    {
+        // สมมติให้ username เป็น key; ถ้าตารางไม่มี PK จริง ให้ตั้ง HasNoKey() ใน DbContext แทน
+        public string? Username { get; set; }  // ชื่อคอลัมน์จริง: username
+        public string? Password { get; set; }  // password (เก็บ plain/hashed ตาม config)
+        public string? Department { get; set; }
+
+        // สิทธิ์หลัก (flag '1'/'0') — ***เป็น string ทั้งหมด***
+        public string? Masterfiles { get; set; } // masterfiles
+        public string? Transactions { get; set; } // transactions
+        public string? Reports { get; set; } // reports
+        public string? Enquirys { get; set; } // enquirys
+        public string? Systems { get; set; } // systems
+        public string? Addinss { get; set; } // addinss
+        public string? Exports { get; set; } // exports
+        public string? Approved { get; set; } // approved
+
+        // สิทธิ์ย่อย/อื่น ๆ จากสคริปต์
+        public string? Addnew { get; set; }
+        public string? Modify { get; set; }
+        public string? Deleted { get; set; }
+        public string? Change { get; set; }
+        public string? Levels { get; set; }
+        public string? Utility { get; set; }
+        public string? Report { get; set; }
+        public string? Finance { get; set; }
+        public string? Postcheck { get; set; }
+        public string? Sections { get; set; }
+    }
+}
+
+
+===== FILE: Properties\launchSettings.json =====
+
+{
+  "profiles": {
+    "Ams.Media.Web": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "https://localhost:51065;http://localhost:51066"
+    },
+    "IIS Express": {
+      "commandName": "IISExpress",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    }
+  },
+  "iisSettings": {
+    "windowsAuthentication": false,
+    "anonymousAuthentication": true,
+    "iisExpress": {
+      "applicationUrl": "http://localhost:51112/",
+      "sslPort": 44328
+    }
+  }
+}
+
+===== FILE: Services\AuthService.cs =====
+
+using System.Security.Claims;
+using Ams.Media.Web.Data;
+using Ams.Media.Web.Models;
+using Microsoft.EntityFrameworkCore;
+
+namespace Ams.Media.Web.Services
+{
+    public class AuthService : IAuthService
+    {
+        private readonly AmsDbContext _db;
+        private readonly IConfiguration _config;
+
+        public AuthService(AmsDbContext db, IConfiguration config)
+        {
+            _db = db;
+            _config = config;
+        }
+
+        public async Task<(bool ok, string message, ClaimsPrincipal? principal)>
+            ValidateAsync(string username, string password)
+        {
+            // ตรวจสอบ user ใน Security_user
+            var u = await _db.SecurityUsers
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.Username == username && x.Approved == "1");
+
+            if (u == null)
+                return (false, "User not found or not approved.", null);
+
+            var mode = _config.GetValue<string>("Auth:PasswordMode") ?? "Plain";
+            bool passOk = mode.Equals("Plain", StringComparison.OrdinalIgnoreCase)
+                ? string.Equals(u.Password, password)
+                : BCrypt.Net.BCrypt.Verify(password, u.Password ?? string.Empty);
+
+            if (!passOk)
+                return (false, "Invalid password.", null);
+
+            // กติกา Single-Login
+            var comp = Environment.MachineName ?? "UNKNOWN";
+            var now = DateTime.Now;
+
+            var existing = await _db.SecurityLogs.FirstOrDefaultAsync(x => x.Username == username);
+
+            if (existing != null)
+            {
+                if (string.Equals(existing.ComputerName?.Trim(), comp, StringComparison.OrdinalIgnoreCase))
+                {
+                    // เครื่องเดิม → update เวลา
+                    existing.UserDateTime = now;
+                    existing.Processing = "Login refreshed";
+                    await _db.SaveChangesAsync();
+                }
+                else
+                {
+                    // เครื่องอื่น → ปฏิเสธ login
+                    string holdComp = (existing.ComputerName ?? "UNKNOWN").Trim();
+                    string holdTime = existing.UserDateTime.HasValue
+                        ? existing.UserDateTime.Value.ToString("dd/MM/yyyy HH:mm:ss")
+                        : "-";
+                    var msg = $"Login denied. Already logged in at \"{holdComp}\" since {holdTime}. Please logout from that machine first.";
+                    return (false, msg, null);
+                }
+            }
+            else
+            {
+                // ไม่มี record → insert ใหม่
+                _db.SecurityLogs.Add(new SecurityLog
+                {
+                    Username = username,
+                    ComputerName = comp,
+                    UserDateTime = now,
+                    Processing = "Login OK"
+                });
+                await _db.SaveChangesAsync();
+            }
+
+            // Claims สำหรับสิทธิ์เมนู
+            var claims = new List<Claim>
+            {
+                new(ClaimTypes.Name, u.Username ?? string.Empty),
+                new("menu:M", (u.Masterfiles  == "1").ToString()),
+                new("menu:T", (u.Transactions == "1").ToString()),
+                new("menu:R", (u.Reports      == "1").ToString()),
+                new("menu:E", (u.Enquirys     == "1").ToString()),
+                new("menu:S", (u.Systems      == "1").ToString()),
+                new("menu:A", (u.Addinss      == "1").ToString()),
+            };
+
+            return (true, "OK", new ClaimsPrincipal(new ClaimsIdentity(claims, "Cookies")));
+        }
+
+        public async Task LogoutLogAsync(string username)
+        {
+            var row = await _db.SecurityLogs.FirstOrDefaultAsync(x => x.Username == username);
+            if (row != null)
+            {
+                _db.SecurityLogs.Remove(row);
+                await _db.SaveChangesAsync();
+            }
+        }
+    }
+}
+
+
+===== FILE: Services\DateTimeHelper.cs =====
+
+using System.Globalization;
+
+namespace Ams.Media.Web.Services
+{
+    public class DateTimeHelper : IDateTimeHelper
+    {
+        private static string D_Short = "dd/MM/yyyy";
+        private static string D_Long = "dd/MMM/yyyy";
+        private static string T_Short = "HH:mm";
+        private static string T_Long = "HH:mm:ss";
+
+        public string FormatDateShort(DateTime? dt) => dt.HasValue ? dt.Value.ToString(D_Short, CultureInfo.InvariantCulture) : "";
+        public string FormatDateLong(DateTime? dt) => dt.HasValue ? dt.Value.ToString(D_Long, CultureInfo.InvariantCulture) : "";
+        public string FormatTimeShort(TimeSpan? ts) => ts.HasValue ? DateTime.UnixEpoch.Add(ts.Value).ToString(T_Short, CultureInfo.InvariantCulture) : "";
+        public string FormatTimeLong(TimeSpan? ts) => ts.HasValue ? DateTime.UnixEpoch.Add(ts.Value).ToString(T_Long, CultureInfo.InvariantCulture) : "";
+    }
+}
+
+
+===== FILE: Services\IAuthService.cs =====
+
+using System.Security.Claims;
+using System.Threading.Tasks;
+
+namespace Ams.Media.Web.Services
+{
+    public interface IAuthService
+    {
+        /// <summary>
+        /// ตรวจสอบรหัสผ่าน + กติกา Single-Login (Security_Log)
+        /// </summary>
+        Task<(bool ok, string message, ClaimsPrincipal? principal)>
+            ValidateAsync(string username, string password);
+
+        /// <summary>
+        /// ลบ session ปัจจุบันของผู้ใช้ออกจาก Security_Log (ใช้ตอน Logout)
+        /// </summary>
+        Task LogoutLogAsync(string username);
+    }
+}
+
+
+===== FILE: Services\IDateTimeHelper.cs =====
+
+namespace Ams.Media.Web.Services
+{
+    public interface IDateTimeHelper
+    {
+        string FormatDateShort(DateTime? dt);
+        string FormatDateLong(DateTime? dt);
+        string FormatTimeShort(TimeSpan? ts);
+        string FormatTimeLong(TimeSpan? ts);
+    }
+}
+
+
+===== FILE: Services\IMenuGate.cs =====
+
+using System.Security.Claims;
+
+namespace Ams.Media.Web.Services
+{
+    public interface IMenuGate
+    {
+        // สิทธิ์เมนูหลักจาก Claims (menu:M/T/R/E/A/S)
+        bool CanMasterfiles(ClaimsPrincipal user);
+        bool CanTransactions(ClaimsPrincipal user);
+        bool CanReports(ClaimsPrincipal user);
+        bool CanEnquirys(ClaimsPrincipal user);
+        bool CanAddins(ClaimsPrincipal user);
+        bool CanSystems(ClaimsPrincipal user);
+
+        // โหลดเมนูย่อยตามกลุ่ม: "M","T","R","E","S"
+        Task<IReadOnlyList<MenuItemVm>> GetSubMenusAsync(string groupKey, ClaimsPrincipal user);
+        Task<IReadOnlyList<MenuItemVm>> GetSubMenusAsync(char groupKey, ClaimsPrincipal user);
+    }
+
+    // ViewModel สำหรับเมนูย่อย
+    public class MenuItemVm
+    {
+        public string Code { get; set; } = "";      // เช่น mclient, tnew, rinvoice
+        public string Name { get; set; } = "";      // ชื่อแสดงผล
+        public string Controller { get; set; } = ""; // ชื่อคอนโทรลเลอร์
+        public string Action { get; set; } = "Index";
+        public bool Enabled { get; set; } = false;   // true = 1 ใน security_menu
+    }
+}
+
+
+===== FILE: Services\IQueryService.cs =====
+
+namespace Ams.Media.Web.Services
+{
+    public interface IQueryService
+    {
+        IQueryable<T> Page<T>(IQueryable<T> q, int page, int pageSize);
+    }
+}
+
+
+===== FILE: Services\MenuGate.cs =====
+
+using System.Security.Claims;
+using Ams.Media.Web.Data;
+using Microsoft.EntityFrameworkCore;
+
+namespace Ams.Media.Web.Services
+{
+    public class MenuGate : IMenuGate
+    {
+        private readonly AmsDbContext _db;
+        public MenuGate(AmsDbContext db) { _db = db; }
+
+        public bool CanMasterfiles(ClaimsPrincipal user) => ReadBool(user, "menu:M");
+        public bool CanTransactions(ClaimsPrincipal user) => ReadBool(user, "menu:T");
+        public bool CanReports(ClaimsPrincipal user) => ReadBool(user, "menu:R");
+        public bool CanEnquirys(ClaimsPrincipal user) => ReadBool(user, "menu:E");
+        public bool CanAddins(ClaimsPrincipal user) => ReadBool(user, "menu:A");
+        public bool CanSystems(ClaimsPrincipal user) => ReadBool(user, "menu:S");
+
+        private static bool ReadBool(ClaimsPrincipal user, string key)
+            => bool.TryParse(user?.FindFirst(key)?.Value, out var b) && b;
+
+        public Task<IReadOnlyList<MenuItemVm>> GetSubMenusAsync(char groupKey, ClaimsPrincipal user) => GetSubMenusAsync(groupKey.ToString(), user);
+
+        public async Task<IReadOnlyList<MenuItemVm>> GetSubMenusAsync(string groupKey, ClaimsPrincipal user)
+        {
+            // ถ้าเมนูหลักถูกปิดใน claims → ไม่ต้องคืนเมนูย่อย
+            if ((groupKey?.ToUpper()) switch
+            {
+                "M" => !CanMasterfiles(user),
+                "T" => !CanTransactions(user),
+                "R" => !CanReports(user),
+                "E" => !CanEnquirys(user),
+                "S" => !CanSystems(user),
+                _ => true
+            })
+            {
+                return Array.Empty<MenuItemVm>();
+            }
+
+            // อ่านสิทธิ์เมนูย่อยจาก security_menu
+            // TODO: เลือก row ตามผู้ใช้/บทบาท หากตารางมีคีย์ผูกกับ user; ตอนนี้ใช้แถวแรกเพื่อให้ระบบรันได้
+            var sm = await _db.SecurityMenus.AsNoTracking().FirstOrDefaultAsync();
+            if (sm == null) return Array.Empty<MenuItemVm>();
+
+            var list = new List<MenuItemVm>();
+
+            switch (groupKey?.ToUpperInvariant())
+            {
+                case "M": // Masterfiles
+                    list.Add(new MenuItemVm { Code = "mstation", Name = "Station", Controller = "mStation", Enabled = sm.MStation == "1" });
+                    list.Add(new MenuItemVm { Code = "mclient", Name = "Client", Controller = "mClient", Enabled = sm.MClient == "1" });
+                    list.Add(new MenuItemVm { Code = "mproduct", Name = "Product", Controller = "mProduct", Enabled = sm.MProduct == "1" });
+                    list.Add(new MenuItemVm { Code = "mtargetgroup", Name = "Target Group", Controller = "mTargetGroup", Enabled = sm.MTargetGroup == "1" });
+                    list.Add(new MenuItemVm { Code = "mcampaign", Name = "Campaign", Controller = "mCampaign", Enabled = sm.MCampaign == "1" });
+                    list.Add(new MenuItemVm { Code = "mlanguage", Name = "Language", Controller = "mLanguage", Enabled = sm.MLanguage == "1" });
+                    list.Add(new MenuItemVm { Code = "mmaterial", Name = "Material", Controller = "mMaterial", Enabled = sm.MMaterial == "1" });
+                    list.Add(new MenuItemVm { Code = "mcurrency", Name = "Currency", Controller = "mCurrency", Enabled = sm.MCurrency == "1" });
+                    list.Add(new MenuItemVm { Code = "mmediatype", Name = "Media Type", Controller = "mMediaType", Enabled = sm.MMediaType == "1" });
+                    list.Add(new MenuItemVm { Code = "mvendor", Name = "Vendor", Controller = "mVendor", Enabled = sm.MVendor == "1" });
+                    list.Add(new MenuItemVm { Code = "mratecode", Name = "Rate Code", Controller = "mRateCode", Enabled = sm.MRateCode == "1" });
+                    list.Add(new MenuItemVm { Code = "mprogramtype", Name = "Program Type", Controller = "mProgramType", Enabled = sm.MProgramType == "1" });
+                    list.Add(new MenuItemVm { Code = "mrateitem", Name = "Rate Item", Controller = "mRateItem", Enabled = sm.MRateItem == "1" });
+                    list.Add(new MenuItemVm { Code = "mbooking", Name = "Booking", Controller = "mBooking", Enabled = sm.MBooking == "1" });
+                    list.Add(new MenuItemVm { Code = "mtax", Name = "Tax", Controller = "mTax", Enabled = sm.MTax == "1" });
+                    list.Add(new MenuItemVm { Code = "mdaypart", Name = "DayPart", Controller = "mDayPart", Enabled = sm.MDayPart == "1" });
+                    break;
+
+                case "T": // Transactions
+                    list.Add(new MenuItemVm { Code = "tnew", Name = "New Plan", Controller = "tNewPlan", Enabled = sm.TNew == "1" });
+                    list.Add(new MenuItemVm { Code = "tdelete", Name = "Delete Plan", Controller = "tDeletePlan", Enabled = sm.TDelete == "1" });
+                    list.Add(new MenuItemVm { Code = "tbudget", Name = "Define Schedule", Controller = "tDefineSchedule", Enabled = sm.TBudget == "1" });
+                    list.Add(new MenuItemVm { Code = "tselectorder", Name = "Select For Order", Controller = "tSelectOrder", Enabled = sm.TSelectOrder == "1" });
+                    list.Add(new MenuItemVm { Code = "tselectinvoice", Name = "Select For Invoice", Controller = "tSelectInvoice", Enabled = sm.TSelectInvoice == "1" });
+                    list.Add(new MenuItemVm { Code = "trefresh", Name = "Refresh Data", Controller = "tRefresh", Enabled = sm.TRefresh == "1" });
+                    break;
+
+                case "R": // Reports
+                    list.Add(new MenuItemVm { Code = "rmasterreport", Name = "Master Files", Controller = "rMaster", Enabled = sm.RMaster == "1" });
+                    list.Add(new MenuItemVm { Code = "rpurchase", Name = "Purchase Order", Controller = "rPurchase", Enabled = sm.RPurchase == "1" });
+                    list.Add(new MenuItemVm { Code = "ramendment", Name = "Purchase Amendment", Controller = "rAmendment", Enabled = sm.RAmendment == "1" });
+                    list.Add(new MenuItemVm { Code = "rinvoice", Name = "Invoice", Controller = "rInvoice", Enabled = sm.RInvoice == "1" });
+                    list.Add(new MenuItemVm { Code = "rscheduleflow", Name = "Schedule / Flowchart", Controller = "rScheduleFlow", Enabled = sm.RScheduleFlow == "1" });
+                    list.Add(new MenuItemVm { Code = "rrevenue", Name = "Revenue Report", Controller = "rRevenue", Enabled = sm.RRevenue == "1" });
+                    list.Add(new MenuItemVm { Code = "rexpense", Name = "Expense Report", Controller = "rExpense", Enabled = sm.RExpense == "1" });
+                    list.Add(new MenuItemVm { Code = "rjob", Name = "Job Report", Controller = "rJob", Enabled = sm.RJob == "1" });
+                    list.Add(new MenuItemVm { Code = "rschedule", Name = "Schedule Report", Controller = "rSchedule", Enabled = sm.RSchedule == "1" });
+                    list.Add(new MenuItemVm { Code = "rpurchasereport", Name = "Purchase Report", Controller = "rPurchaseRpt", Enabled = sm.RPurchaseRpt == "1" });
+                    list.Add(new MenuItemVm { Code = "rbillingreport", Name = "Billing Report", Controller = "rBilling", Enabled = sm.RBilling == "1" });
+                    list.Add(new MenuItemVm { Code = "ragencymargin", Name = "Agency Margin Report", Controller = "rAgencyMargin", Enabled = sm.RAgencyMargin == "1" });
+                    list.Add(new MenuItemVm { Code = "rmonitor", Name = "Monitor Report", Controller = "rMonitor", Enabled = sm.RMonitor == "1" });
+                    break;
+
+                case "E": // Enquiry
+                    list.Add(new MenuItemVm { Code = "epurchase", Name = "Purchase Order", Controller = "ePurchase", Enabled = sm.EPurchase == "1" });
+                    list.Add(new MenuItemVm { Code = "einvoice", Name = "Invoice", Controller = "eInvoice", Enabled = sm.EInvoice == "1" });
+                    list.Add(new MenuItemVm { Code = "etvrating", Name = "TV Rating", Controller = "eTVRating", Enabled = sm.ETVRating == "1" });
+                    list.Add(new MenuItemVm { Code = "ereach", Name = "Reach", Controller = "eReach", Enabled = sm.EReach == "1" });
+                    break;
+
+                case "S": // Systems
+                    list.Add(new MenuItemVm { Code = "ssetup", Name = "Setup", Controller = "sSetup", Enabled = sm.SSetup == "1" });
+                    list.Add(new MenuItemVm { Code = "simporttvarating", Name = "Import TVA Rating", Controller = "sImportTVA", Enabled = sm.SImportTVA == "1" });
+                    list.Add(new MenuItemVm { Code = "simporttvarating_arena", Name = "Import TVA Rating - Arena", Controller = "sImportArena", Enabled = sm.SImportArena == "1" });
+                    break;
+            }
+
+            // คืนเฉพาะเมนูที่ Enabled = true
+            return list.Where(x => x.Enabled).ToList();
+        }
+    }
+}
+
+
+===== FILE: Services\QueryService.cs =====
+
+namespace Ams.Media.Web.Services
+{
+    public class QueryService : IQueryService
+    {
+        public IQueryable<T> Page<T>(IQueryable<T> q, int page, int pageSize)
+        {
+            if (page <= 0) page = 1;
+            if (pageSize <= 0) pageSize = 20;
+            return q.Skip((page - 1) * pageSize).Take(pageSize);
+        }
+    }
+}
+
+
+===== FILE: Views\Account\Login.cshtml =====
+
+@{
+    Layout = "_LayoutLogin";   // ใช้ layout เฉพาะหน้า login (หรือเปลี่ยนเป็น "_Layout" ถ้าไม่มี)
+    ViewData["Title"] = "Sign in";
+    var returnUrl = ViewData["ReturnUrl"] as string ?? "/";
+}
+
+<h3 class="mb-3 text-center">AMS Media - Login</h3>
+
+<form asp-action="Login" asp-controller="Account" method="post" class="card shadow-sm p-4">
+    @Html.AntiForgeryToken()
+    <input type="hidden" name="returnUrl" value="@returnUrl" />
+
+    <div class="mb-3">
+        <label for="username" class="form-label">Username</label>
+        <input id="username" name="username" class="form-control" autocomplete="username" required />
+    </div>
+
+    <div class="mb-3">
+        <label for="password" class="form-label">Password</label>
+        <input id="password" name="password" type="password" class="form-control" autocomplete="current-password" required />
+    </div>
+
+    <button type="submit" class="btn btn-primary w-100">Login</button>
+
+    @if (!ViewData.ModelState.IsValid)
+    {
+        <div class="alert alert-danger mt-3">
+            @foreach (var err in ViewData.ModelState.SelectMany(x => x.Value!.Errors))
+            {
+                <div>@err.ErrorMessage</div>
+            }
+        </div>
+    }
+</form>
+
+<div class="text-muted small mt-3 text-center">
+    <p>Language: English / ไทย</p>
+    <p>Date Format: dd/MM/yyyy &nbsp; Time Format: HH:mm:ss</p>
+</div>
+
+
+===== FILE: Views\Home\Index.cshtml =====
+
+@{
+    Layout = "_Layout";
+}
+<div class="p-4 bg-light rounded-3">
+    <h3>Welcome to AMS Media</h3>
+    <p class="lead">This is the ASP.NET Core MVC migration.</p>
+</div>
+
+
+===== FILE: Views\Shared\_Layout.cshtml =====
+
+@using Ams.Media.Web.Services
+@inject IMenuGate Gate
+
+<!-- Masterfiles -->
+<li class="nav-item dropdown">
+    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Masterfiles</a>
+    @{
+        var subM = await Gate.GetSubMenusAsync("M", User);
+    }
+    @if (subM.Any())
+    {
+        <ul class="dropdown-menu">
+            @foreach (var it in subM)
+            {
+                <li>
+                    <a class="dropdown-item"
+                       asp-controller="@it.Controller"
+                       asp-action="@it.Action">
+                        @it.Name
+                    </a>
+                </li>
+            }
+        </ul>
+    }
+</li>
+
+
+<!-- Transactions -->
+<li class="nav-item dropdown">
+    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Transactions</a>
+    @{
+        var subT = await Gate.GetSubMenusAsync("T", User);
+    }
+    @if (subT.Any())
+    {
+        <ul class="dropdown-menu">
+            @foreach (var it in subT)
+            {
+                <li>
+                    <a class="dropdown-item"
+                       asp-controller="@it.Controller"
+                       asp-action="@it.Action">
+                        @it.Name
+                    </a>
+                </li>
+            }
+        </ul>
+    }
+</li>
+
+<!-- Reports -->
+<li class="nav-item dropdown">
+    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Reports</a>
+    @{
+        var subR = await Gate.GetSubMenusAsync("R", User);
+    }
+    @if (subR.Any())
+    {
+        <ul class="dropdown-menu">
+            @foreach (var it in subR)
+            {
+                <li>
+                    <a class="dropdown-item"
+                       asp-controller="@it.Controller"
+                       asp-action="@it.Action">
+                        @it.Name
+                    </a>
+                </li>
+            }
+        </ul>
+    }
+</li>
+
+<!-- Enquiry -->
+<li class="nav-item dropdown">
+    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Enquiry</a>
+    @{
+        var subE = await Gate.GetSubMenusAsync("E", User);
+    }
+    @if (subE.Any())
+    {
+        <ul class="dropdown-menu">
+            @foreach (var it in subE)
+            {
+                <li>
+                    <a class="dropdown-item"
+                       asp-controller="@it.Controller"
+                       asp-action="@it.Action">
+                        @it.Name
+                    </a>
+                </li>
+            }
+        </ul>
+    }
+</li>
+
+<!-- Systems -->
+<li class="nav-item dropdown">
+    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Systems</a>
+    @{
+        var subS = await Gate.GetSubMenusAsync("S", User);
+    }
+    @if (subS.Any())
+    {
+        <ul class="dropdown-menu">
+            @foreach (var it in subS)
+            {
+                <li>
+                    <a class="dropdown-item"
+                       asp-controller="@it.Controller"
+                       asp-action="@it.Action">
+                        @it.Name
+                    </a>
+                </li>
+            }
+        </ul>
+    }
+</li>
+
+
+===== FILE: Views\Shared\_LayoutLogin.cshtml =====
+
+@*
+  Layout สำหรับหน้า Login ของ AMS Media (เวอร์ชันปรับปรุง)
+  - กล่องฟอร์มกว้างขึ้น ดูชัดเจนขึ้น
+  - บังคับ UTF-8 กันตัวหนังสือไทยเพี้ยน
+  - ใช้ Bootstrap 5 (ทั้งแบบไฟล์ local และ CDN fallback)
+*@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@(ViewData["Title"] ?? "Sign in") - AMS Media</title>
+
+    <!-- ใช้ไฟล์ local ถ้ามี -->
+    <link rel="stylesheet" href="~/lib/bootstrap/css/bootstrap.min.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+
+    <!-- Fallback เป็น CDN กรณีไม่มีไฟล์ local -->
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" />
+    <script>
+        (function () {
+          const test = document.createElement('div');
+          test.className = 'd-none';
+          document.head.appendChild(test);
+          const hasBootstrap = getComputedStyle(test).display === 'none';
+          if (!hasBootstrap) {
+            const l = document.createElement('link');
+            l.rel = 'stylesheet';
+            l.href = 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css';
+            document.head.appendChild(l);
+          }
+          test.remove();
+        })();
+    </script>
+
+    <style>
+        :root {
+            color-scheme: light;
+        }
+
+        body {
+            background: radial-gradient(1200px 600px at 70% 10%, rgba(0,0,0,.06), transparent), #f5f7fa;
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            padding: 24px;
+        }
+
+        .login-container {
+            width: 100%;
+            max-width: 520px;
+        }
+
+        .card {
+            border: 0;
+            border-radius: 18px;
+            box-shadow: 0 18px 50px rgba(0,0,0,.12);
+            overflow: hidden;
+        }
+
+        .card-body {
+            padding: 28px;
+        }
+
+        h3 {
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <main class="login-container">
+        <div class="card bg-white">
+            <div class="card-body text-center">
+                <img src="~/img/ams_logo.png" alt="AMS Media" class="mb-3" style="max-height:80px;" />
+                @RenderBody()
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Bootstrap local -->
+    <script src="~/lib/bootstrap/js/bootstrap.bundle.min.js" asp-append-version="true"></script>
+    <!-- Fallback CDN -->
+    <script>
+        if (typeof bootstrap === 'undefined') {
+          var s = document.createElement('script');
+          s.src = 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js';
+          document.body.appendChild(s);
+        }
+    </script>
+
+    @RenderSection("Scripts", required: false)
+</body>
+</html>
+
+
+===== FILE: Views\Shared\_LayoutLogin.cshtml.cs =====
+
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.RazorPages;
+
+namespace Ams.Media.Web.Views.Shared
+{
+    public class _LayoutLoginModel : PageModel
+    {
+        public void OnGet()
+        {
+        }
+    }
+}
+
+
+===== FILE: wwwroot\css\site.css =====
+
+body {
+    padding-bottom: 40px
+}
+
+.navbar-nav .dropdown-menu {
+    max-height: 60vh;
+    overflow: auto
+}
+

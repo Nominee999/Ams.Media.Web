@@ -1,25 +1,43 @@
 name: .NET CI
+
 on:
-  push: { branches: [ master, main ] }
-  pull_request: { branches: [ master, main ] }
+  push:
+    branches:
+      - master
+      - main
+      - develop
+      - 'feature/**'
+      - 'fix/**'
+      - 'chore/**'
+  pull_request:
+    branches:
+      - master
+      - main
+      - develop
+  workflow_dispatch: {}   # << ทำให้มีปุ่ม Run workflow ในแท็บ Actions
 
 jobs:
   build:
     runs-on: windows-latest
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.0.x'
+          dotnet-version: 8.0.x
+
       - name: Restore
-        run: dotnet restore ./Ams.Media.Web.csproj
-      - name: Build
-        run: dotnet build ./Ams.Media.Web.csproj -c Release --no-restore
-      - name: Publish (win-x64 self-contained)
-        run: dotnet publish ./Ams.Media.Web.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o out/win-x64
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ams-media-win
-          path: out/win-x64/**
-          retention-days: 10
+        run: dotnet restore
+
+      # (ถ้าใช้ LibMan ให้เอา comment ออกสองบรรทัดด้านล่าง)
+      # - name: LibMan restore
+      #   run: dotnet tool restore && libman restore
+
+      - name: Build (Release)
+        run: dotnet build --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test --no-build --verbosity normal

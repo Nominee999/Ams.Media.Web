@@ -1,0 +1,134 @@
+diff --git a/Ams.Media.Web/Data/AmsDbContext.cs b/Ams.Media.Web/Data/AmsDbContext.cs
+index 1111111..2222222 100644
+--- a/Ams.Media.Web/Data/AmsDbContext.cs
++++ b/Ams.Media.Web/Data/AmsDbContext.cs
+@@ -1,6 +1,7 @@
+ using Ams.Media.Web.Models;
+ using Microsoft.EntityFrameworkCore;
+ 
+ namespace Ams.Media.Web.Data
+ {
+     public class AmsDbContext : DbContext
+@@ -58,10 +59,12 @@ namespace Ams.Media.Web.Data
+         // security_menu
+         modelBuilder.Entity<SecurityMenu>(e =>
+         {
+             e.ToTable("security_menu");
++            // map คอลัมน์ username เพื่อเลือกสิทธิ์ตามผู้ใช้
++            e.Property(x => x.Username).HasColumnName("username");
+             // ... mapping อื่นคงเดิม
+         });
+ 
+-        // Security_log (keyless เดิม)
+-        modelBuilder.Entity<SecurityLog>(e =>
+-        {
+-            e.ToTable("Security_log");
+-            e.HasNoKey();
+-            e.Property(x => x.Username).HasColumnName("username");
+-            e.Property(x => x.UserDateTime).HasColumnName("userdatetime");
+-            e.Property(x => x.ComputerName).HasColumnName("computername");
+-            e.Property(x => x.Processing).HasColumnName("processing");
+-        });
++        // Security_Log: ให้ตรงสคีมา (PRIMARY KEY(username)) เพื่อให้ Add/Remove ได้
++        modelBuilder.Entity<SecurityLog>(e =>
++        {
++            e.ToTable("Security_Log"); // เดิมสะกดต่างเคส
++            e.HasKey(x => x.Username); // เดิม HasNoKey()
++            e.Property(x => x.Username).HasColumnName("username");
++            e.Property(x => x.UserDateTime).HasColumnName("userdatetime");
++            e.Property(x => x.ComputerName).HasColumnName("computername");
++            e.Property(x => x.Processing).HasColumnName("processing");
++        });
+ 
+         // ... entities อื่น ๆ คงเดิม
+     }
+diff --git a/Ams.Media.Web/Models/SecurityMenu.cs b/Ams.Media.Web/Models/SecurityMenu.cs
+index 3333333..4444444 100644
+--- a/Ams.Media.Web/Models/SecurityMenu.cs
++++ b/Ams.Media.Web/Models/SecurityMenu.cs
+@@ -1,10 +1,13 @@
+ using System.ComponentModel.DataAnnotations.Schema;
+ 
+ namespace Ams.Media.Web.Models
+ {
+     [Table("security_menu")]
+     public class SecurityMenu
+     {
++        // ใช้เลือกสิทธิ์ตามผู้ใช้ (map คอลัมน์ username)
++        public string? Username { get; set; } // username
++
+         // ตัวอย่าง flag ที่มีอยู่เดิม
+         public string? MClient { get; set; }
+         public string? MStation { get; set; }
+         public string? MProduct { get; set; }
+         // ... ฟิลด์อื่น ๆ คงเดิม
+     }
+ }
+diff --git a/Ams.Media.Web/Services/MenuGate.cs b/Ams.Media.Web/Services/MenuGate.cs
+index 5555555..6666666 100644
+--- a/Ams.Media.Web/Services/MenuGate.cs
++++ b/Ams.Media.Web/Services/MenuGate.cs
+@@ -1,6 +1,7 @@
+ using System.Collections.Generic;
+ using System.Security.Claims;
+ using System.Threading.Tasks;
+ using Ams.Media.Web.Data;
+ using Ams.Media.Web.Models;
+ using Microsoft.EntityFrameworkCore;
+ 
+ namespace Ams.Media.Web.Services
+ {
+     public class MenuGate : IMenuGate
+     {
+         private readonly AmsDbContext _db;
+         public MenuGate(AmsDbContext db) { _db = db; }
+ 
+         public async Task<IList<MenuItemVm>> GetSubMenusAsync(ClaimsPrincipal user, string? groupKey)
+         {
+-            // เดิม: ดึงแถวแรกของ security_menu (ไม่ผูกผู้ใช้)
+-            var sm = await _db.SecurityMenus.AsNoTracking().FirstOrDefaultAsync();
++            // ใหม่: ดึง security_menu ของผู้ใช้ (username)
++            var uname = user?.Identity?.Name ?? "";
++            var sm = await _db.SecurityMenus
++                               .AsNoTracking()
++                               .FirstOrDefaultAsync(x => x.Username == uname);
+             if (sm == null) return new List<MenuItemVm>(0);
+ 
+             var list = new List<MenuItemVm>();
+             switch (groupKey?.ToUpperInvariant())
+             {
+                 case "M": // Masterfiles
+                     list.Add(new MenuItemVm { Code = "mstation", Name = "Station", Controller = "mStation", Enabled = sm.MStation == "1" });
+-                    list.Add(new MenuItemVm { Code = "mclient", Name = "Client", Controller = "mClient", Enabled = sm.MClient == "1" });
++                    // คงเมนู Client แต่พาไปหน้า Denied เพื่อหลีกเลี่ยง 404
++                    list.Add(new MenuItemVm { Code = "mclient", Name = "Client", Controller = "Account", Action = "Denied", Enabled = sm.MClient == "1" });
+                     list.Add(new MenuItemVm { Code = "mproduct", Name = "Product", Controller = "mProduct", Enabled = sm.MProduct == "1" });
+                     // ... รายการอื่น ๆ คงเดิม
+                     break;
+                 // group อื่น ๆ คงเดิม
+             }
+             return list;
+         }
+     }
+ }
+diff --git a/Ams.Media.Web/Views/Account/Denied.cshtml b/Ams.Media.Web/Views/Account/Denied.cshtml
+new file mode 100644
+index 0000000..7777777
+--- /dev/null
++++ b/Ams.Media.Web/Views/Account/Denied.cshtml
+@@ -0,0 +1,23 @@
++@{
++    Layout = "_Layout";
++    ViewData["Title"] = "Access denied";
++}
++<div class="container" style="max-width:640px">
++    <div class="card shadow-sm my-4">
++        <div class="card-body">
++            <h5 class="mb-2">Access denied</h5>
++            <p class="text-muted mb-3">
++                คุณไม่มีสิทธิ์เข้าถึงเมนูนี้ หรือฟีเจอร์ถูกปิดใช้งานชั่วคราว
++            </p>
++            <a asp-controller="Home" asp-action="Index" class="btn btn-primary">กลับหน้าแรก</a>
++        </div>
++    </div>
++</div>

@@ -16,4 +16,8 @@
 		<PackageReference Include="Microsoft.Extensions.Localization" Version="8.0.6" />
 		<PackageReference Include="Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation" Version="8.0.6" />
 	</ItemGroup>
+	<ItemGroup>
+	  <Folder Include="Views\Auth\" />
+	  <Folder Include="Views\Masterfiles\" />
+	</ItemGroup>
 </Project>

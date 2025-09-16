@@ -1,5 +1,5 @@
 @{
-    Layout = "_LayoutLogin";
+    Layout = "_LayoutLogin";   // ใช้ layout เฉพาะหน้า login (หรือเปลี่ยนเป็น "_Layout" ถ้าไม่มี)
     ViewData["Title"] = "Sign in";
     var returnUrl = ViewData["ReturnUrl"] as string ?? "/";
 }
@@ -34,6 +34,6 @@
 </form>
 
 <div class="text-muted small mt-3 text-center">
-    <p>Language: English / ภาษาไทย</p>
+    <p>Language: English / ไทย</p>
     <p>Date Format: dd/MM/yyyy &nbsp; Time Format: HH:mm:ss</p>
 </div>

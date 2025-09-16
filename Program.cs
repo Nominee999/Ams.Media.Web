@@ -1,38 +1,59 @@
+using System.Globalization;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Localization;
+using Microsoft.EntityFrameworkCore;
 using Ams.Media.Web.Data;
 using Ams.Media.Web.Services;
-using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. Database
-builder.Services.AddDbContext<AmsDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("AmsDb")));
+// MVC + RuntimeCompilation (สะดวกช่วง Dev)
+builder.Services.AddControllersWithViews().AddRazorRuntimeCompilation();
 
-// 2. Dependency Injection
-builder.Services.AddScoped<IAuthService, AuthService>();
-builder.Services.AddScoped<IMenuGate, MenuGate>();
+// EF Core SQL Server
+builder.Services.AddDbContext<AmsDbContext>(opt =>
+    opt.UseSqlServer(builder.Configuration.GetConnectionString("AmsDb")));
 
-// 3. Authentication & Cookie
+
+
+
+// Cookie Auth
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
     {
-        options.LoginPath = "/Account/Login";   // หน้า Login
-        options.LogoutPath = "/Account/Logout"; // หน้า Logout
-        options.AccessDeniedPath = "/Account/AccessDenied";
-        options.ExpireTimeSpan = TimeSpan.FromMinutes(60);
+        options.LoginPath = "/Account/Login";
+        options.AccessDeniedPath = "/Account/Denied";
         options.SlidingExpiration = true;
+        options.ExpireTimeSpan = TimeSpan.FromHours(8);
+        // กัน 400 จาก cookie size ใหญ่ผิดปกติ
+        options.Cookie.Name = ".Ams.Media.Auth";
+        options.Cookie.HttpOnly = true;
+        options.Cookie.SameSite = SameSiteMode.Lax;
     });
 
-// 4. Authorization
+// Localization (EN/TH)
+builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
+
+// Services กลาง
+builder.Services.AddSingleton<IDateTimeHelper, DateTimeHelper>();
+builder.Services.AddScoped<IMenuGate, MenuGate>();
+builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IQueryService, QueryService>();
+builder.Services.AddControllersWithViews();
 builder.Services.AddAuthorization();
 
-// 5. MVC + Razor
-builder.Services.AddControllersWithViews();
 
 var app = builder.Build();
 
-// -------------------- Pipeline --------------------
+// ใช้ Culture: en-US, th-TH (Default = en-US) + CE Calendar
+var supportedCultures = new[] { new CultureInfo("en-US"), new CultureInfo("th-TH") };
+app.UseRequestLocalization(new RequestLocalizationOptions
+{
+    DefaultRequestCulture = new RequestCulture("en-US"),
+    SupportedCultures = supportedCultures,
+    SupportedUICultures = supportedCultures
+});
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Home/Error");
@@ -41,17 +62,12 @@ if (!app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();
-
 app.UseRouting();
-
-// Auth middlewares (สำคัญมาก!)
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Default Route
 app.MapControllerRoute(
     name: "default",
-    pattern: "{controller=Home}/{action=Index}/{id?}");
+    pattern: "{controller=Account}/{action=Login}/{id?}");
 
-// Start app
 app.Run();

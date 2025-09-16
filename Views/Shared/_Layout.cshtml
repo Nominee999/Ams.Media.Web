@@ -1,70 +1,118 @@
-﻿@* Layout หลัก: มาพร้อม Navbar + เมนูย่อยจาก IMenuGate และ Footer ติดขอบล่าง *@
-@addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>@(ViewData["Title"] ?? "AMS Media")</title>
+@using Ams.Media.Web.Services
+@inject IMenuGate Gate
 
-    <link rel="stylesheet" href="~/lib/bootstrap/css/bootstrap.min.css" asp-append-version="true" />
-    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
-    <style>
-        body {
-            padding-top: 64px;
-            padding-bottom: 56px;
-        }
-        /* กันเมนูซ้อนกับเนื้อหาเวลาเป็น fixed */
-        .navbar {
-            z-index: 1030;
-        }
-    </style>
-</head>
-<body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top shadow-sm">
-        <div class="container-fluid">
-            <a class="navbar-brand d-flex align-items-center" asp-controller="Home" asp-action="Index">
-                <img src="~/img/ams_logo.png" alt="AMS" style="height:28px" class="me-2" />
-                <span class="fw-semibold">AMS Media</span>
-            </a>
+<!-- Masterfiles -->
+<li class="nav-item dropdown">
+    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Masterfiles</a>
+    @{
+        var subM = await Gate.GetSubMenusAsync("M", User);
+    }
+    @if (subM.Any())
+    {
+        <ul class="dropdown-menu">
+            @foreach (var it in subM)
+            {
+                <li>
+                    <a class="dropdown-item"
+                       asp-controller="@it.Controller"
+                       asp-action="@it.Action">
+                        @it.Name
+                    </a>
+                </li>
+            }
+        </ul>
+    }
+</li>
 
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#topnav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
 
-            <div class="collapse navbar-collapse" id="topnav">
-                @await Html.PartialAsync("_TopNav")
-                <ul class="navbar-nav ms-auto">
-                    @if (User?.Identity?.IsAuthenticated ?? false)
-                    {
-                        <li class="nav-item"><span class="navbar-text me-2">Hello, @User.Identity!.Name</span></li>
-                        <li class="nav-item">
-                            <form asp-controller="Account" asp-action="Logout" method="post" class="d-inline">
-                                @Html.AntiForgeryToken()
-                                <button class="btn btn-outline-light btn-sm">Logout</button>
-                            </form>
-                        </li>
-                    }
-                    else
-                    {
-                        <li class="nav-item">
-                            <a class="btn btn-outline-light btn-sm" asp-controller="Account" asp-action="Login">Login</a>
-                        </li>
-                    }
-                </ul>
-            </div>
-        </div>
-    </nav>
+<!-- Transactions -->
+<li class="nav-item dropdown">
+    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Transactions</a>
+    @{
+        var subT = await Gate.GetSubMenusAsync("T", User);
+    }
+    @if (subT.Any())
+    {
+        <ul class="dropdown-menu">
+            @foreach (var it in subT)
+            {
+                <li>
+                    <a class="dropdown-item"
+                       asp-controller="@it.Controller"
+                       asp-action="@it.Action">
+                        @it.Name
+                    </a>
+                </li>
+            }
+        </ul>
+    }
+</li>
 
-    <main class="container">
-        @RenderBody()
-    </main>
+<!-- Reports -->
+<li class="nav-item dropdown">
+    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Reports</a>
+    @{
+        var subR = await Gate.GetSubMenusAsync("R", User);
+    }
+    @if (subR.Any())
+    {
+        <ul class="dropdown-menu">
+            @foreach (var it in subR)
+            {
+                <li>
+                    <a class="dropdown-item"
+                       asp-controller="@it.Controller"
+                       asp-action="@it.Action">
+                        @it.Name
+                    </a>
+                </li>
+            }
+        </ul>
+    }
+</li>
 
-    <footer class="bg-dark text-light text-center py-2 fixed-bottom">
-        <small>© 2025 AMS Media. All rights reserved.</small>
-    </footer>
+<!-- Enquiry -->
+<li class="nav-item dropdown">
+    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Enquiry</a>
+    @{
+        var subE = await Gate.GetSubMenusAsync("E", User);
+    }
+    @if (subE.Any())
+    {
+        <ul class="dropdown-menu">
+            @foreach (var it in subE)
+            {
+                <li>
+                    <a class="dropdown-item"
+                       asp-controller="@it.Controller"
+                       asp-action="@it.Action">
+                        @it.Name
+                    </a>
+                </li>
+            }
+        </ul>
+    }
+</li>
 
-    <script src="~/lib/bootstrap/js/bootstrap.bundle.min.js" asp-append-version="true"></script>
-    @RenderSection("Scripts", required: false)
-</body>
-</html>
+<!-- Systems -->
+<li class="nav-item dropdown">
+    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Systems</a>
+    @{
+        var subS = await Gate.GetSubMenusAsync("S", User);
+    }
+    @if (subS.Any())
+    {
+        <ul class="dropdown-menu">
+            @foreach (var it in subS)
+            {
+                <li>
+                    <a class="dropdown-item"
+                       asp-controller="@it.Controller"
+                       asp-action="@it.Action">
+                        @it.Name
+                    </a>
+                </li>
+            }
+        </ul>
+    }
+</li>
