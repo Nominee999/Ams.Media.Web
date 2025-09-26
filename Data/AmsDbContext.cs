@@ -5,12 +5,16 @@ namespace Ams.Media.Web.Data
 {
     public class AmsDbContext : DbContext
     {
-        public AmsDbContext(DbContextOptions<AmsDbContext> options) : base(options) { }
+        
 
         public DbSet<SecurityMenu> SecurityMenus => Set<SecurityMenu>();
         public DbSet<SecurityLog> SecurityLogs => Set<SecurityLog>();
         public DbSet<SecurityUser> SecurityUsers => Set<SecurityUser>();
+        // ctor สำหรับใช้ผ่าน DI (Program.cs -> AddDbContext)
+        public AmsDbContext(DbContextOptions<AmsDbContext> options) : base(options) { }
 
+        // ctor สำหรับ HybridDbScope (เราส่ง SqlConnection เข้ามา)
+        public AmsDbContext(DbContextOptions options) : base(options) { }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             // Security_menu : PK = username
