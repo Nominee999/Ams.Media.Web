@@ -12,74 +12,29 @@ public sealed class ClientRepository(DbConnectionFactory db) : IClientRepository
 {
     public async Task<IReadOnlyList<ClientUsageRow>> GetUsageAsync(int clientCode, CancellationToken ct, IDbTransaction? tx = null)
     {
-        // ตารางที่ต้องเช็ค (ชื่ออย่างเดียว ไม่ระบุสคีมา)
-        var tables = new[]
+        const string sql = """
+DECLARE @ClientCode int = @clientCode;
+
+SELECT 'TransactionMaster' AS Module, COUNT(*) AS Cnt FROM dbo.TransactionMaster WHERE ClientCode = @ClientCode
+UNION ALL SELECT 'TransactionKey', COUNT(*) FROM dbo.Transactionkeymaster WHERE ClientCode = @ClientCode
+UNION ALL SELECT 'PlanDetail', COUNT(*) FROM dbo.PlanDetail WHERE ClientCode = @ClientCode
+UNION ALL SELECT 'Product', COUNT(*) FROM dbo.Product WHERE ClientId = @ClientCode
+UNION ALL SELECT 'Campaign', COUNT(*) FROM dbo.Campaign WHERE ClientId = @ClientCode
+UNION ALL SELECT 'Material', COUNT(*) FROM dbo.Material WHERE ClientId = @ClientCode
+UNION ALL SELECT 'Booking', COUNT(*) FROM dbo.Booking WHERE ClientId = @ClientCode
+UNION ALL SELECT 'Job', COUNT(*) FROM dbo.Job WHERE ClientCode = @ClientCode;
+""";
+
+        var cmd = new CommandDefinition(sql, new { clientCode }, transaction: tx, cancellationToken: ct);
+        if (tx is not null)
         {
-        "TransactionMaster","TransactionKey","PlanDetail","Product","Campaign",
-        "Material","RateCode","RateItem","Booking","Job"
-    };
-
-        var results = new List<ClientUsageRow>(tables.Length);
-        var con = tx?.Connection ?? db.Create();
-        var disposeCon = tx is null;
-
-        try
-        {
-            foreach (var tbl in tables)
-            {
-                try
-                {
-                    var sql = @"
-DECLARE @schema sysname, @col sysname, @cnt int = 0;
-
--- หา schema ของตารางเป้าหมาย (ชื่อโต๊ะตรงตามที่ระบุ ไม่สนสคีมา)
-SELECT TOP (1) @schema = s.name
-FROM sys.tables t
-JOIN sys.schemas s ON s.schema_id = t.schema_id
-WHERE t.name = @tbl;
-
-IF @schema IS NOT NULL
-BEGIN
-    -- เลือกคอลัมน์คีย์ลูกค้าที่มีอยู่จริง
-    IF COL_LENGTH(QUOTENAME(@schema)+'.'+QUOTENAME(@tbl), 'ClientCode') IS NOT NULL
-        SET @col = N'ClientCode';
-    ELSE IF COL_LENGTH(QUOTENAME(@schema)+'.'+QUOTENAME(@tbl), 'ClientID') IS NOT NULL
-        SET @col = N'ClientID';
-    ELSE IF COL_LENGTH(QUOTENAME(@schema)+'.'+QUOTENAME(@tbl), 'Client_Id') IS NOT NULL
-        SET @col = N'Client_Id';
-
-    IF @col IS NOT NULL
-    BEGIN
-        DECLARE @sql nvarchar(max) =
-            N'SELECT @cntOut = COUNT(*) FROM ' + QUOTENAME(@schema)+N'.'+QUOTENAME(@tbl) +
-            N' WHERE ' + QUOTENAME(@col) + N' = @p';
-        EXEC sp_executesql @sql, N'@p int, @cntOut int OUTPUT', @p = @clientCode, @cntOut = @cnt OUTPUT;
-    END
-END
-
-SELECT @cnt;";
-
-                    var cnt = await con.ExecuteScalarAsync<int>(new CommandDefinition(
-                        sql, new { tbl, clientCode }, transaction: tx, cancellationToken: ct));
-
-                    results.Add(new ClientUsageRow { Module = tbl, Count = cnt });
-                }
-                catch
-                {
-                    // ถ้าตาราง/สิทธิ์/ชื่อคอลัมน์มีปัญหา → คืน 0 แล้วไปตารางถัดไป
-                    results.Add(new ClientUsageRow { Module = tbl, Count = 0 });
-                }
-            }
-
-            return results;
+            var rowsTx = await tx.Connection!.QueryAsync<(string Module, int Cnt)>(cmd);
+            return rowsTx.Select(r => new ClientUsageRow { Module = r.Module, Count = r.Cnt }).ToList();
         }
-        finally
-        {
-            if (disposeCon) con.Dispose();
-        }
+        using var con = db.Create();
+        var rows = await con.QueryAsync<(string Module, int Cnt)>(cmd);
+        return rows.Select(r => new ClientUsageRow { Module = r.Module, Count = r.Cnt }).ToList();
     }
-
-
 
 
     public async Task<int> InsertClientAsync(ClientDto dto, CancellationToken ct)
