@@ -12,32 +12,59 @@ public sealed class ClientRepository(DbConnectionFactory db) : IClientRepository
 {
     public async Task<IReadOnlyList<ClientUsageRow>> GetUsageAsync(int clientCode, CancellationToken ct, IDbTransaction? tx = null)
     {
-        const string sql = """
-SELECT 'TransactionMaster' AS Module, COUNT(*) AS [Count] FROM TransactionMaster WHERE ClientCode = @ClientCode
-UNION ALL SELECT 'TransactionKey', COUNT(*) FROM TransactionKey WHERE ClientCode = @ClientCode
-UNION ALL SELECT 'PlanDetail', COUNT(*) FROM PlanDetail WHERE ClientCode = @ClientCode
-UNION ALL SELECT 'Product', COUNT(*) FROM Product WHERE ClientCode = @ClientCode
-UNION ALL SELECT 'Campaign', COUNT(*) FROM Campaign WHERE ClientCode = @ClientCode
-UNION ALL SELECT 'Material', COUNT(*) FROM Material WHERE ClientCode = @ClientCode
-UNION ALL SELECT 'RateCode', COUNT(*) FROM RateCode WHERE ClientCode = @ClientCode
-UNION ALL SELECT 'RateItem', COUNT(*) FROM RateItem WHERE ClientCode = @ClientCode
-UNION ALL SELECT 'Booking', COUNT(*) FROM Booking WHERE ClientCode = @ClientCode
-UNION ALL SELECT 'Job', COUNT(*) FROM Job WHERE ClientCode = @ClientCode;
-""";
-
-        if (tx is not null)
+        // ตารางที่ต้องเช็ค
+        var tables = new[]
         {
-            // IDE0037: inferred member name (new { clientCode })
-            var cmdTx = new CommandDefinition(sql, new { clientCode }, tx, cancellationToken: ct);
-            var rowsTx = await tx.Connection!.QueryAsync<ClientUsageRow>(cmdTx);
-            return rowsTx.AsList();
-        }
+        "TransactionMaster","TransactionKey","PlanDetail","Product","Campaign",
+        "Material","RateCode","RateItem","Booking","Job"
+    };
 
-        using var con = db.Create();
-        var cmd = new CommandDefinition(sql, new { clientCode }, cancellationToken: ct);
-        var rows = await con.QueryAsync<ClientUsageRow>(cmd);
-        return rows.AsList();
+        // ชื่อคอลัมน์ที่อาจใช้เป็นคีย์ลูกค้าในแต่ละตาราง (เรียงลำดับความน่าจะเป็น)
+        var keyCandidates = new[] { "ClientCode", "ClientID", "Client_Id" };
+
+        static string Q(string ident) => $"[{ident.Replace("]", "]]")}]";
+
+        var con = tx?.Connection ?? db.Create();
+        var disposeCon = tx is null; // ถ้าไม่มี tx จากภายนอก เราจะเป็นคนปิดเอง
+        try
+        {
+            var result = new List<ClientUsageRow>(tables.Length);
+
+            foreach (var tbl in tables)
+            {
+                // 1) หาว่าตารางนี้มีอยู่ไหม และมีคอลัมน์ไหนใช้กรองได้บ้าง
+                var col = await con.ExecuteScalarAsync<string>(new CommandDefinition(
+                    """
+                SELECT TOP (1) COLUMN_NAME
+                FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_NAME = @tbl
+                  AND COLUMN_NAME IN (@c1, @c2, @c3)
+                """,
+                    new { tbl, c1 = keyCandidates[0], c2 = keyCandidates[1], c3 = keyCandidates[2] },
+                    transaction: tx,
+                    cancellationToken: ct
+                ));
+
+                int count = 0;
+                if (!string.IsNullOrEmpty(col))
+                {
+                    // 2) นับจำนวนด้วยคอลัมน์ที่พบ (ป้องกัน SQL Injection เพราะชื่อมาจากลิสต์ในโค้ดและ escape เป็น identifier)
+                    var sql = $"SELECT COUNT(*) FROM {Q(tbl)} WHERE {Q(col)} = @clientCode";
+                    count = await con.ExecuteScalarAsync<int>(new CommandDefinition(
+                        sql, new { clientCode }, transaction: tx, cancellationToken: ct));
+                }
+                // 3) เติมผลลัพธ์ (ถ้าไม่มีตาราง/ไม่มีคอลัมน์ที่ตรง → count = 0)
+                result.Add(new ClientUsageRow { Module = tbl, Count = count });
+            }
+
+            return result;
+        }
+        finally
+        {
+            if (disposeCon) con.Dispose();
+        }
     }
+
 
     public async Task<int> InsertClientAsync(ClientDto dto, CancellationToken ct)
     {
