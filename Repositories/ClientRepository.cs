@@ -12,58 +12,74 @@ public sealed class ClientRepository(DbConnectionFactory db) : IClientRepository
 {
     public async Task<IReadOnlyList<ClientUsageRow>> GetUsageAsync(int clientCode, CancellationToken ct, IDbTransaction? tx = null)
     {
-        // ตารางที่ต้องเช็ค
+        // ตารางที่ต้องเช็ค (ชื่ออย่างเดียว ไม่ระบุสคีมา)
         var tables = new[]
         {
         "TransactionMaster","TransactionKey","PlanDetail","Product","Campaign",
         "Material","RateCode","RateItem","Booking","Job"
     };
 
-        // ชื่อคอลัมน์ที่อาจใช้เป็นคีย์ลูกค้าในแต่ละตาราง (เรียงลำดับความน่าจะเป็น)
-        var keyCandidates = new[] { "ClientCode", "ClientID", "Client_Id" };
-
-        static string Q(string ident) => $"[{ident.Replace("]", "]]")}]";
-
+        var results = new List<ClientUsageRow>(tables.Length);
         var con = tx?.Connection ?? db.Create();
-        var disposeCon = tx is null; // ถ้าไม่มี tx จากภายนอก เราจะเป็นคนปิดเอง
+        var disposeCon = tx is null;
+
         try
         {
-            var result = new List<ClientUsageRow>(tables.Length);
-
             foreach (var tbl in tables)
             {
-                // 1) หาว่าตารางนี้มีอยู่ไหม และมีคอลัมน์ไหนใช้กรองได้บ้าง
-                var col = await con.ExecuteScalarAsync<string>(new CommandDefinition(
-                    """
-                SELECT TOP (1) COLUMN_NAME
-                FROM INFORMATION_SCHEMA.COLUMNS
-                WHERE TABLE_NAME = @tbl
-                  AND COLUMN_NAME IN (@c1, @c2, @c3)
-                """,
-                    new { tbl, c1 = keyCandidates[0], c2 = keyCandidates[1], c3 = keyCandidates[2] },
-                    transaction: tx,
-                    cancellationToken: ct
-                ));
-
-                int count = 0;
-                if (!string.IsNullOrEmpty(col))
+                try
                 {
-                    // 2) นับจำนวนด้วยคอลัมน์ที่พบ (ป้องกัน SQL Injection เพราะชื่อมาจากลิสต์ในโค้ดและ escape เป็น identifier)
-                    var sql = $"SELECT COUNT(*) FROM {Q(tbl)} WHERE {Q(col)} = @clientCode";
-                    count = await con.ExecuteScalarAsync<int>(new CommandDefinition(
-                        sql, new { clientCode }, transaction: tx, cancellationToken: ct));
+                    var sql = @"
+DECLARE @schema sysname, @col sysname, @cnt int = 0;
+
+-- หา schema ของตารางเป้าหมาย (ชื่อโต๊ะตรงตามที่ระบุ ไม่สนสคีมา)
+SELECT TOP (1) @schema = s.name
+FROM sys.tables t
+JOIN sys.schemas s ON s.schema_id = t.schema_id
+WHERE t.name = @tbl;
+
+IF @schema IS NOT NULL
+BEGIN
+    -- เลือกคอลัมน์คีย์ลูกค้าที่มีอยู่จริง
+    IF COL_LENGTH(QUOTENAME(@schema)+'.'+QUOTENAME(@tbl), 'ClientCode') IS NOT NULL
+        SET @col = N'ClientCode';
+    ELSE IF COL_LENGTH(QUOTENAME(@schema)+'.'+QUOTENAME(@tbl), 'ClientID') IS NOT NULL
+        SET @col = N'ClientID';
+    ELSE IF COL_LENGTH(QUOTENAME(@schema)+'.'+QUOTENAME(@tbl), 'Client_Id') IS NOT NULL
+        SET @col = N'Client_Id';
+
+    IF @col IS NOT NULL
+    BEGIN
+        DECLARE @sql nvarchar(max) =
+            N'SELECT @cntOut = COUNT(*) FROM ' + QUOTENAME(@schema)+N'.'+QUOTENAME(@tbl) +
+            N' WHERE ' + QUOTENAME(@col) + N' = @p';
+        EXEC sp_executesql @sql, N'@p int, @cntOut int OUTPUT', @p = @clientCode, @cntOut = @cnt OUTPUT;
+    END
+END
+
+SELECT @cnt;";
+
+                    var cnt = await con.ExecuteScalarAsync<int>(new CommandDefinition(
+                        sql, new { tbl, clientCode }, transaction: tx, cancellationToken: ct));
+
+                    results.Add(new ClientUsageRow { Module = tbl, Count = cnt });
                 }
-                // 3) เติมผลลัพธ์ (ถ้าไม่มีตาราง/ไม่มีคอลัมน์ที่ตรง → count = 0)
-                result.Add(new ClientUsageRow { Module = tbl, Count = count });
+                catch
+                {
+                    // ถ้าตาราง/สิทธิ์/ชื่อคอลัมน์มีปัญหา → คืน 0 แล้วไปตารางถัดไป
+                    results.Add(new ClientUsageRow { Module = tbl, Count = 0 });
+                }
             }
 
-            return result;
+            return results;
         }
         finally
         {
             if (disposeCon) con.Dispose();
         }
     }
+
+
 
 
     public async Task<int> InsertClientAsync(ClientDto dto, CancellationToken ct)
