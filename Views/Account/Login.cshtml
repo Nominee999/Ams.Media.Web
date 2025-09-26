@@ -1,39 +1,39 @@
+๏ปฟ@model Ams.Media.Web.Models.LoginVm
 @{
-    Layout = "_LayoutLogin";   // ใช้ layout เฉพาะหน้า login (หรือเปลี่ยนเป็น "_Layout" ถ้าไม่มี)
-    ViewData["Title"] = "Sign in";
-    var returnUrl = ViewData["ReturnUrl"] as string ?? "/";
+    Layout = "_LayoutLogin";
+    var returnUrl = Context.Request.Query["returnUrl"].ToString();
+    var actionUrl = Url.Action("Login", "Account", new { returnUrl });
 }
-
 <h3 class="mb-3 text-center">AMS Media - Login</h3>
 
-<form asp-action="Login" asp-controller="Account" method="post" class="card shadow-sm p-4">
+<form id="loginForm"
+      method="post"
+      action="@actionUrl"
+      class="card shadow-sm p-4"
+      autocomplete="off">
     @Html.AntiForgeryToken()
-    <input type="hidden" name="returnUrl" value="@returnUrl" />
 
     <div class="mb-3">
-        <label for="username" class="form-label">Username</label>
-        <input id="username" name="username" class="form-control" autocomplete="username" required />
+        <label for="UserName" class="form-label">Username</label>
+        <input id="UserName" name="UserName" class="form-control" autocomplete="username" required />
     </div>
 
     <div class="mb-3">
-        <label for="password" class="form-label">Password</label>
-        <input id="password" name="password" type="password" class="form-control" autocomplete="current-password" required />
+        <label for="Password" class="form-label">Password</label>
+        <input id="Password" name="Password" type="password" class="form-control" autocomplete="current-password" required />
     </div>
 
     <button type="submit" class="btn btn-primary w-100">Login</button>
 
-    @if (!ViewData.ModelState.IsValid)
+    @if (ViewData.ModelState?.ErrorCount > 0)
     {
-        <div class="alert alert-danger mt-3">
-            @foreach (var err in ViewData.ModelState.SelectMany(x => x.Value!.Errors))
-            {
-                <div>@err.ErrorMessage</div>
-            }
+        <div class="alert alert-danger mt-3" role="alert">
+            <div asp-validation-summary="All"></div>
         </div>
     }
 </form>
 
 <div class="text-muted small mt-3 text-center">
-    <p>Language: English / ไทย</p>
+    <p>Language: English / เนเธ—เธข</p>
     <p>Date Format: dd/MM/yyyy &nbsp; Time Format: HH:mm:ss</p>
 </div>

@@ -1,4 +1,6 @@
-﻿using System.Security.Claims;
+﻿// ===== FILE: Services/AuthService.cs =====
+
+using System.Security.Claims;
 using Ams.Media.Web.Data;
 using Ams.Media.Web.Models;
 using Microsoft.EntityFrameworkCore;
@@ -19,54 +21,68 @@ namespace Ams.Media.Web.Services
         public async Task<(bool ok, string message, ClaimsPrincipal? principal)>
             ValidateAsync(string username, string password)
         {
-            // ตรวจสอบ user ใน Security_user
-            var u = await _db.SecurityUsers
-                .AsNoTracking()
-                .FirstOrDefaultAsync(x => x.Username == username && x.Approved == "1");
+            var uname = (username ?? "").Trim();
+            var pwd = (password ?? "").Trim();
 
-            if (u == null)
-                return (false, "User not found or not approved.", null);
+            // --- ตรวจผู้ใช้ + สถานะอนุมัติ ---
+            var u = await _db.SecurityUsers.AsNoTracking()
+                                           .FirstOrDefaultAsync(x => (x.Username ?? "").Trim() == uname);
+            if (u == null) return (false, "User not found.", null);
+            if (((u.Approved ?? "0").Trim() != "1"))
+                return (false, "User is not approved.", null);
 
+            // --- ตรวจรหัสผ่าน: Plain หรือ BCrypt ตาม config ---
             var mode = _config.GetValue<string>("Auth:PasswordMode") ?? "Plain";
             bool passOk = mode.Equals("Plain", StringComparison.OrdinalIgnoreCase)
-                ? string.Equals(u.Password, password)
-                : BCrypt.Net.BCrypt.Verify(password, u.Password ?? string.Empty);
+                ? string.Equals((u.Password ?? "").Trim(), pwd)
+                : BCrypt.Net.BCrypt.Verify(pwd, u.Password ?? string.Empty);
+            if (!passOk) return (false, "Invalid password.", null);
 
-            if (!passOk)
-                return (false, "Invalid password.", null);
-
-            // กติกา Single-Login
-            var comp = Environment.MachineName ?? "UNKNOWN";
+            // --- Single-Login + MAXUSER ---
+            var comp = (Environment.MachineName ?? "UNKNOWN").Trim();
             var now = DateTime.Now;
 
-            var existing = await _db.SecurityLogs.FirstOrDefaultAsync(x => x.Username == username);
+            // 1) หาแถวของ user ก่อนเสมอ (กันชน MAXUSER หากเป็นผู้ใช้ที่นับอยู่แล้ว)
+            var existing = await _db.SecurityLogs.FirstOrDefaultAsync(x => (x.Username ?? "").Trim() == uname);
 
             if (existing != null)
             {
-                if (string.Equals(existing.ComputerName?.Trim(), comp, StringComparison.OrdinalIgnoreCase))
+                // 1.1) เครื่องเดียวกัน => refresh เวลา แล้วผ่าน
+                if (string.Equals((existing.ComputerName ?? "").Trim(), comp, StringComparison.OrdinalIgnoreCase))
                 {
-                    // เครื่องเดิม → update เวลา
                     existing.UserDateTime = now;
                     existing.Processing = "Login refreshed";
                     await _db.SaveChangesAsync();
                 }
                 else
                 {
-                    // เครื่องอื่น → ปฏิเสธ login
+                    // 1.2) คนละเครื่อง => ปฏิเสธตามกติกา single-login
                     string holdComp = (existing.ComputerName ?? "UNKNOWN").Trim();
-                    string holdTime = existing.UserDateTime.HasValue
-                        ? existing.UserDateTime.Value.ToString("dd/MM/yyyy HH:mm:ss")
-                        : "-";
-                    var msg = $"Login denied. Already logged in at \"{holdComp}\" since {holdTime}. Please logout from that machine first.";
-                    return (false, msg, null);
+                    string holdTime = existing.UserDateTime?.ToString("dd/MM/yyyy HH:mm:ss") ?? "-";
+                    return (false, $"Login denied. Already logged in at \"{holdComp}\" since {holdTime}.", null);
                 }
             }
             else
             {
-                // ไม่มี record → insert ใหม่
+                // 2) ผู้ใช้ใหม่กำลังจะเพิ่ม active +1 -> เช็ค MAXUSER ที่นี่เท่านั้น
+                var enableMax = _config.GetValue<bool?>("AMS:EnableMaxUser") ?? true;
+                if (enableMax)
+                {
+                    var maxUser = _config.GetValue<int?>("AMS:MaxUser") ?? 8;
+
+                    // นับ active ปัจจุบัน (1 แถว = 1 ผู้ใช้ที่ออนไลน์)
+                    var active = await _db.SecurityLogs.CountAsync();
+
+                    if (active >= maxUser)
+                    {
+                        return (false, $"System full: {active}/{maxUser} users online. Please try later.", null);
+                    }
+                }
+
+                // ผ่าน => insert แถวใหม่
                 _db.SecurityLogs.Add(new SecurityLog
                 {
-                    Username = username,
+                    Username = uname,
                     ComputerName = comp,
                     UserDateTime = now,
                     Processing = "Login OK"
@@ -74,24 +90,15 @@ namespace Ams.Media.Web.Services
                 await _db.SaveChangesAsync();
             }
 
-            // Claims สำหรับสิทธิ์เมนู
-            var claims = new List<Claim>
-            {
-                new(ClaimTypes.Name, u.Username ?? string.Empty),
-                new("menu:M", (u.Masterfiles  == "1").ToString()),
-                new("menu:T", (u.Transactions == "1").ToString()),
-                new("menu:R", (u.Reports      == "1").ToString()),
-                new("menu:E", (u.Enquirys     == "1").ToString()),
-                new("menu:S", (u.Systems      == "1").ToString()),
-                new("menu:A", (u.Addinss      == "1").ToString()),
-            };
-
+            // --- ออก ClaimsPrincipal (เหมือนเดิม) ---
+            var claims = new List<Claim> { new(ClaimTypes.Name, u.Username ?? string.Empty) };
             return (true, "OK", new ClaimsPrincipal(new ClaimsIdentity(claims, "Cookies")));
         }
 
         public async Task LogoutLogAsync(string username)
         {
-            var row = await _db.SecurityLogs.FirstOrDefaultAsync(x => x.Username == username);
+            var uname = (username ?? "").Trim();
+            var row = await _db.SecurityLogs.FirstOrDefaultAsync(x => (x.Username ?? "").Trim() == uname);
             if (row != null)
             {
                 _db.SecurityLogs.Remove(row);

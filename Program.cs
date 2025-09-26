@@ -1,51 +1,52 @@
-using System.Globalization;
+﻿using System.Globalization;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Localization;
 using Microsoft.EntityFrameworkCore;
 using Ams.Media.Web.Data;
 using Ams.Media.Web.Services;
 
+// ★ เพิ่ม using สำหรับ Options
+using Ams.Media.Web.Options;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// MVC + RuntimeCompilation (�дǡ��ǧ Dev)
-builder.Services.AddControllersWithViews().AddRazorRuntimeCompilation();
+// MVC (+ RuntimeCompilation เฉพาะตอน Dev)
+var mvc = builder.Services.AddControllersWithViews();
+if (builder.Environment.IsDevelopment())
+{
+    mvc.AddRazorRuntimeCompilation();
+}
 
 // EF Core SQL Server
 builder.Services.AddDbContext<AmsDbContext>(opt =>
     opt.UseSqlServer(builder.Configuration.GetConnectionString("AmsDb")));
 
-
-
-
 // Cookie Auth
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
-    .AddCookie(options =>
+    .AddCookie(o =>
     {
-        options.LoginPath = "/Account/Login";
-        options.AccessDeniedPath = "/Account/Denied";
-        options.SlidingExpiration = true;
-        options.ExpireTimeSpan = TimeSpan.FromHours(8);
-        // �ѹ 400 �ҡ cookie size �˭�Դ����
-        options.Cookie.Name = ".Ams.Media.Auth";
-        options.Cookie.HttpOnly = true;
-        options.Cookie.SameSite = SameSiteMode.Lax;
+        o.LoginPath = "/Account/Login";
+        o.AccessDeniedPath = "/Account/Denied";
+        o.Cookie.Name = ".Ams.Media.Auth";
+        o.ExpireTimeSpan = TimeSpan.FromHours(8);
+        o.SlidingExpiration = true;
     });
 
-// Localization (EN/TH)
-builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
+builder.Services.AddAuthorization();
 
-// Services ��ҧ
+// Services กลาง
 builder.Services.AddSingleton<IDateTimeHelper, DateTimeHelper>();
 builder.Services.AddScoped<IMenuGate, MenuGate>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IQueryService, QueryService>();
-builder.Services.AddControllersWithViews();
-builder.Services.AddAuthorization();
 
+// ★ Bind AmsOptions จาก appsettings:AMS
+builder.Services.Configure<AmsOptions>(
+    builder.Configuration.GetSection("AMS"));
 
 var app = builder.Build();
 
-// �� Culture: en-US, th-TH (Default = en-US) + CE Calendar
+// ใช้ Culture: en-US, th-TH (Default = en-US)
 var supportedCultures = new[] { new CultureInfo("en-US"), new CultureInfo("th-TH") };
 app.UseRequestLocalization(new RequestLocalizationOptions
 {
@@ -62,8 +63,10 @@ if (!app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();
+
 app.UseRouting();
-app.UseAuthentication();
+
+app.UseAuthentication(); // ★ ต้องมาก่อน
 app.UseAuthorization();
 
 app.MapControllerRoute(

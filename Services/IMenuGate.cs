@@ -1,4 +1,7 @@
 using System.Security.Claims;
+using System.Threading.Tasks;
+using System.Collections.Generic;
+using Ams.Media.Web.Models;
 
 namespace Ams.Media.Web.Services
 {
@@ -12,18 +15,8 @@ namespace Ams.Media.Web.Services
         bool CanAddins(ClaimsPrincipal user);
         bool CanSystems(ClaimsPrincipal user);
 
-        // โหลดเมนูย่อยตามกลุ่ม: "M","T","R","E","S"
+        // โหลดเมนูย่อยตามกลุ่ม: "M","T","R","E","A","S"
         Task<IReadOnlyList<MenuItemVm>> GetSubMenusAsync(string groupKey, ClaimsPrincipal user);
         Task<IReadOnlyList<MenuItemVm>> GetSubMenusAsync(char groupKey, ClaimsPrincipal user);
-    }
-
-    // ViewModel สำหรับเมนูย่อย
-    public class MenuItemVm
-    {
-        public string Code { get; set; } = "";      // เช่น mclient, tnew, rinvoice
-        public string Name { get; set; } = "";      // ชื่อแสดงผล
-        public string Controller { get; set; } = ""; // ชื่อคอนโทรลเลอร์
-        public string Action { get; set; } = "Index";
-        public bool Enabled { get; set; } = false;   // true = 1 ใน security_menu
     }
 }

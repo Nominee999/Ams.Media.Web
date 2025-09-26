@@ -6,3 +6,8 @@ body {
     max-height: 60vh;
     overflow: auto
 }
+
+/* ซ่อน validation summary ตอนที่ไม่มี error */
+.validation-summary-valid {
+    display: none;
+}
