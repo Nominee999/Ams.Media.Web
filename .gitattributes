@@ -10,6 +10,14 @@
 *.yaml    text eol=lf
 *.md      text eol=lf
 
+* text=auto
+*.cs text eol=crlf
+*.cshtml text eol=crlf
+*.ts text eol=lf
+*.tsx text eol=lf
+*.json text eol=lf
+*.sql text eol=lf
+
 # สคริปต์ Windows เป็น CRLF
 *.bat     text eol=crlf
 *.cmd     text eol=crlf
