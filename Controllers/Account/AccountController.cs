@@ -54,16 +54,39 @@ namespace Ams.Media.Web.Controllers
             return RedirectToAction("Index", "Home");
         }
 
-        [Authorize, HttpPost]
-        [ValidateAntiForgeryToken]
+
+
+        // ✅ รองรับ GET เพื่อให้ลิงก์ <a href="/Account/Logout"> ทำงานได้ (ชั่วคราว)
+        [HttpGet]
         public async Task<IActionResult> Logout()
         {
-            var uname = User?.Identity?.Name ?? "";
-            try { if (!string.IsNullOrWhiteSpace(uname)) await _auth.LogoutLogAsync(uname); }
-            catch (Exception ex) { _logger.LogWarning(ex, "LogoutLogAsync failed for {User}", uname); }
+            var uname = User?.Identity?.Name?.Trim();
+            try
+            {
+                if (!string.IsNullOrEmpty(uname))
+                    await _auth.LogoutLogAsync(uname);
+            }
+            catch { /* swallow เพื่อไม่ให้ Logout พัง */ }
 
             await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-            return RedirectToAction(nameof(Login));
+            return RedirectToAction("Login", "Account");
+        }
+
+        // ✅ เวอร์ชัน POST (ทางการ ปลอดภัยกว่า)
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> LogoutPost()
+        {
+            var uname = User?.Identity?.Name?.Trim();
+            try
+            {
+                if (!string.IsNullOrEmpty(uname))
+                    await _auth.LogoutLogAsync(uname);
+            }
+            catch { /* swallow */ }
+
+            await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            return RedirectToAction("Login", "Account");
         }
 
         [HttpGet, AllowAnonymous]

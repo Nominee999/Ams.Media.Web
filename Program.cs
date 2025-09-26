@@ -7,7 +7,7 @@ using Ams.Media.Web.Services;
 
 // ★ เพิ่ม using สำหรับ Options
 using Ams.Media.Web.Options;
-
+ 
 var builder = WebApplication.CreateBuilder(args);
 
 // MVC (+ RuntimeCompilation เฉพาะตอน Dev)
@@ -39,7 +39,7 @@ builder.Services.AddSingleton<IDateTimeHelper, DateTimeHelper>();
 builder.Services.AddScoped<IMenuGate, MenuGate>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IQueryService, QueryService>();
-
+ 
 // ★ Bind AmsOptions จาก appsettings:AMS
 builder.Services.Configure<AmsOptions>(
     builder.Configuration.GetSection("AMS"));

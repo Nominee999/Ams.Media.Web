@@ -1,154 +1,218 @@
-﻿@using Ams.Media.Web.Models
-@using Ams.Media.Web.Services
-@inject IMenuGate Gate
+﻿@using System.Linq
+@using Ams.Media.Web.Models
+@inject Ams.Media.Web.Services.IMenuGate Gate
 @{
     var title = ViewData["Title"] as string ?? "AMS Media";
-    var user = User;
+    var uname = User?.Identity?.Name ?? "";
 
-    var mMenus = await Gate.GetSubMenusAsync('M', user);
-    var tMenus = await Gate.GetSubMenusAsync('T', user);
-    var rMenus = await Gate.GetSubMenusAsync('R', user);
-    var eMenus = await Gate.GetSubMenusAsync('E', user);
-    var aMenus = await Gate.GetSubMenusAsync('A', user);
-    var sMenus = await Gate.GetSubMenusAsync('S', user);
-
-    string LinkFor(MenuItemVm it)
-    {
-        if (!string.IsNullOrWhiteSpace(it?.Controller) && !string.IsNullOrWhiteSpace(it?.Action))
-            return Url.Action(it.Action, it.Controller) ?? "#";
-        if (!string.IsNullOrWhiteSpace(it?.Url)) return it!.Url!;
-        return "#";
-    }
+    // โหลดเมนูทุกกลุ่มโดยส่ง username เป็น string และกัน null
+    var mItems = (await Gate.GetSubMenusAsync('M', uname))?.ToList() ?? new List<MenuItemVm>();
+    var tItems = (await Gate.GetSubMenusAsync('T', uname))?.ToList() ?? new List<MenuItemVm>();
+    var rItems = (await Gate.GetSubMenusAsync('R', uname))?.ToList() ?? new List<MenuItemVm>();
+    var eItems = (await Gate.GetSubMenusAsync('E', uname))?.ToList() ?? new List<MenuItemVm>();
+    var aItems = (await Gate.GetSubMenusAsync('A', uname))?.ToList() ?? new List<MenuItemVm>();
+    var sItems = (await Gate.GetSubMenusAsync('S', uname))?.ToList() ?? new List<MenuItemVm>();
 }
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@title</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <!-- ✅ Bootstrap (LibMan default path) -->
-    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" asp-append-version="true" />
-    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
-    @RenderSection("Styles", required: false)
+    <!-- Bootstrap 5 (CDN) -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" crossorigin="anonymous">
+    <!-- Bootstrap Icons (CDN) -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+
+    <link rel="stylesheet" href="~/css/site.css" />
 </head>
 <body>
     <header>
-        <nav class="navbar navbar-expand-lg navbar-light bg-light border-bottom shadow-sm">
+        <nav class="navbar navbar-expand-lg navbar-light bg-light border-bottom">
             <div class="container-fluid">
-                <a class="navbar-brand d-flex align-items-center gap-2" asp-controller="Home" asp-action="Index">
-                    <img src="~/img/ams_logo.png" alt="AMS" width="22" />
-                    <span>AMS Media</span>
-                </a>
-
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#topNav"
-                        aria-controls="topNav" aria-expanded="false" aria-label="Toggle navigation">
+                <a class="navbar-brand" asp-controller="Home" asp-action="Index">AMS</a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav" aria-controls="mainNav" aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
                 </button>
 
-                <div class="collapse navbar-collapse" id="topNav">
+                <div class="collapse navbar-collapse" id="mainNav">
                     <ul class="navbar-nav me-auto mb-2 mb-lg-0">
 
-                        @if (mMenus?.Any(x => x.Enabled) == true)
+                        @* Master (M) *@
+                        @if (mItems.Any())
                         {
                             <li class="nav-item dropdown">
-                                <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">Masterfiles</a>
+                                <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Master</a>
                                 <ul class="dropdown-menu">
-                                    @foreach (var it in mMenus.Where(x => x.Enabled))
+                                    @foreach (var it in mItems)
                                     {
-                                        <li><a class="dropdown-item" href="@LinkFor(it)">@it.Name</a></li>
+                                        <li>
+                                            @if (!string.IsNullOrWhiteSpace(it.Controller) && !string.IsNullOrWhiteSpace(it.Action))
+                                            {
+                                                <a class="dropdown-item" asp-controller="@it.Controller" asp-action="@it.Action">
+                                                    @if (!string.IsNullOrWhiteSpace(it.Icon))
+                                                    {
+                                                        <i class="@it.Icon"></i>
+                                                    }
+                                                    @it.Text
+                                                </a>
+                                            }
+                                            else
+                                            {
+                                                <a class="dropdown-item" href="@it.Url">
+                                                    @if (!string.IsNullOrWhiteSpace(it.Icon))
+                                                    {
+                                                        <i class="@it.Icon"></i>
+                                                    }
+                                                    @it.Text
+                                                </a>
+                                            }
+                                        </li>
                                     }
                                 </ul>
                             </li>
                         }
 
-                        @if (tMenus?.Any(x => x.Enabled) == true)
+                        @* Transaction (T) *@
+                        @if (tItems.Any())
                         {
                             <li class="nav-item dropdown">
-                                <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">Transactions</a>
+                                <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Transaction</a>
                                 <ul class="dropdown-menu">
-                                    @foreach (var it in tMenus.Where(x => x.Enabled))
+                                    @foreach (var it in tItems)
                                     {
-                                        <li><a class="dropdown-item" href="@LinkFor(it)">@it.Name</a></li>
+                                        <li>
+                                            @if (!string.IsNullOrWhiteSpace(it.Controller) && !string.IsNullOrWhiteSpace(it.Action))
+                                            {
+                                                <a class="dropdown-item" asp-controller="@it.Controller" asp-action="@it.Action">@it.Text</a>
+                                            }
+                                            else
+                                            {
+                                                <a class="dropdown-item" href="@it.Url">@it.Text</a>
+                                            }
+                                        </li>
                                     }
                                 </ul>
                             </li>
                         }
 
-                        @if (rMenus?.Any(x => x.Enabled) == true)
+                        @* Report (R) *@
+                        @if (rItems.Any())
                         {
                             <li class="nav-item dropdown">
-                                <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">Reports</a>
+                                <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Report</a>
                                 <ul class="dropdown-menu">
-                                    @foreach (var it in rMenus.Where(x => x.Enabled))
+                                    @foreach (var it in rItems)
                                     {
-                                        <li><a class="dropdown-item" href="@LinkFor(it)">@it.Name</a></li>
+                                        <li>
+                                            @if (!string.IsNullOrWhiteSpace(it.Controller) && !string.IsNullOrWhiteSpace(it.Action))
+                                            {
+                                                <a class="dropdown-item" asp-controller="@it.Controller" asp-action="@it.Action">@it.Text</a>
+                                            }
+                                            else
+                                            {
+                                                <a class="dropdown-item" href="@it.Url">@it.Text</a>
+                                            }
+                                        </li>
                                     }
                                 </ul>
                             </li>
                         }
 
-                        @if (eMenus?.Any(x => x.Enabled) == true)
+                        @* Enquiry (E) *@
+                        @if (eItems.Any())
                         {
                             <li class="nav-item dropdown">
-                                <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">Enquirys</a>
+                                <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Enquiry</a>
                                 <ul class="dropdown-menu">
-                                    @foreach (var it in eMenus.Where(x => x.Enabled))
+                                    @foreach (var it in eItems)
                                     {
-                                        <li><a class="dropdown-item" href="@LinkFor(it)">@it.Name</a></li>
+                                        <li>
+                                            @if (!string.IsNullOrWhiteSpace(it.Controller) && !string.IsNullOrWhiteSpace(it.Action))
+                                            {
+                                                <a class="dropdown-item" asp-controller="@it.Controller" asp-action="@it.Action">@it.Text</a>
+                                            }
+                                            else
+                                            {
+                                                <a class="dropdown-item" href="@it.Url">@it.Text</a>
+                                            }
+                                        </li>
                                     }
                                 </ul>
                             </li>
                         }
 
-                        @if (aMenus?.Any(x => x.Enabled) == true)
+                        @* Admin (A) *@
+                        @if (aItems.Any())
                         {
                             <li class="nav-item dropdown">
-                                <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">Addins</a>
+                                <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Admin</a>
                                 <ul class="dropdown-menu">
-                                    @foreach (var it in aMenus.Where(x => x.Enabled))
+                                    @foreach (var it in aItems)
                                     {
-                                        <li><a class="dropdown-item" href="@LinkFor(it)">@it.Name</a></li>
+                                        <li>
+                                            @if (!string.IsNullOrWhiteSpace(it.Controller) && !string.IsNullOrWhiteSpace(it.Action))
+                                            {
+                                                <a class="dropdown-item" asp-controller="@it.Controller" asp-action="@it.Action">@it.Text</a>
+                                            }
+                                            else
+                                            {
+                                                <a class="dropdown-item" href="@it.Url">@it.Text</a>
+                                            }
+                                        </li>
                                     }
                                 </ul>
                             </li>
                         }
 
-                        @if (sMenus?.Any(x => x.Enabled) == true)
+                        @* System (S) *@
+                        @if (sItems.Any())
                         {
                             <li class="nav-item dropdown">
-                                <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">Systems</a>
+                                <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">System</a>
                                 <ul class="dropdown-menu">
-                                    @foreach (var it in sMenus.Where(x => x.Enabled))
+                                    @foreach (var it in sItems)
                                     {
-                                        <li><a class="dropdown-item" href="@LinkFor(it)">@it.Name</a></li>
+                                        <li>
+                                            @if (!string.IsNullOrWhiteSpace(it.Controller) && !string.IsNullOrWhiteSpace(it.Action))
+                                            {
+                                                <a class="dropdown-item" asp-controller="@it.Controller" asp-action="@it.Action">@it.Text</a>
+                                            }
+                                            else
+                                            {
+                                                <a class="dropdown-item" href="@it.Url">@it.Text</a>
+                                            }
+                                        </li>
                                     }
                                 </ul>
                             </li>
                         }
                     </ul>
 
-                    <div class="d-flex">
-                        <a class="btn btn-outline-secondary btn-sm" asp-controller="Account" asp-action="Logout">Logout</a>
-                    </div>
+                    <form asp-controller="Account" asp-action="LogoutPost" method="post" class="d-inline">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="btn btn-outline-secondary btn-sm">Logout</button>
+                    </form>
                 </div>
             </div>
         </nav>
     </header>
 
-    <main class="container my-4">
+    <main class="container py-3">
         @RenderBody()
     </main>
-    <!-- Bootstrap 5 (CDN) -->
-    <link rel="stylesheet"
-          href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-          integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
-          crossorigin="anonymous">
 
-    <!-- ต้องใช้ bootstrap.bundle มี Popper ในตัว เพื่อให้ dropdown ทำงาน -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
-            integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
-            crossorigin="anonymous"></script>
+    <footer class="border-top py-3 mt-4">
+        <div class="container small text-muted">
+            © @DateTime.Now.Year AMS Media
+        </div>
+    </footer>
 
+    <!-- Bootstrap JS (CDN) -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
+    <script src="~/js/site.js"></script>
+
+    @RenderSection("Scripts", required: false)
 </body>
 </html>
