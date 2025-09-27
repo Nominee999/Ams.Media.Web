@@ -1,58 +1,39 @@
-﻿using Ams.Media.Web.Services.Interfaces;
+﻿using Ams.Media.Web.Services;
+using Ams.Media.Web.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Hosting;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Ams.Media.Web.Controllers.Api;
 
 [ApiController]
+[Produces("application/json")]
 [Route("api/clients")]
-public sealed class ClientsController(IClientService clientService) : ControllerBase
+public sealed class ClientsController(IClientService svc, IHostEnvironment env) : ControllerBase
 {
-    [HttpGet("{clientCode:int}/usage")]
-    public async Task<IActionResult> GetUsage(int clientCode, CancellationToken ct)
-        => Ok(await clientService.GetUsageAsync(clientCode, ct));
-
-    [HttpPost]
-    public async Task<IActionResult> Create([FromBody] Dtos.ClientDto dto, CancellationToken ct)
+    [HttpGet]
+    public async Task<IActionResult> Get([FromQuery] int page, [FromQuery] int pageSize, [FromQuery] string? q, CancellationToken ct)
     {
-        var id = await clientService.SaveAsync(dto, ct);
-        return CreatedAtAction(nameof(GetUsage), new { clientCode = id }, new { clientCode = id });
-    }
+        if (page <= 0 || pageSize <= 0)
+            return BadRequest(new { message = "page และ pageSize ต้องมากกว่า 0", page, pageSize });
 
-    [HttpPut("{clientCode:int}")]
-    public async Task<IActionResult> Update(int clientCode, [FromBody] Dtos.ClientDto dto, CancellationToken ct)
-    {
-        var id = await clientService.UpdateAsync(clientCode, dto, ct);
-        return Ok(new { clientCode = id });
-    }
-
-    [HttpDelete("{clientCode:int}")]
-    public async Task<IActionResult> Delete(int clientCode, CancellationToken ct)
-    {
-        var usage = await clientService.GetUsageAsync(clientCode, ct);
-        var inUse = usage.Where(x => x.Count > 0).ToList();
-
-        if (inUse.Count > 0)
+        try
         {
-            return Conflict(new
-            {
-                message = "ยังมีการใช้งานอยู่ ไม่สามารถลบได้",
-                clientCode,
-                usedBy = inUse
-            });
+            var (items, total) = await svc.ListAsync(q, page, pageSize, ct);
+            return Ok(new { items, total, page, pageSize, q });
         }
-
-        var ok = await clientService.DeleteSafeAsync(clientCode, ct);
-        if (!ok)
+        catch (System.Exception ex)
         {
-            return Conflict(new
+            if (env.IsDevelopment())
             {
-                message = "ยังมีการใช้งานอยู่ (DB ตรวจพบ)",
-                clientCode
-            });
+                return Problem(
+                    title: ex.GetType().FullName,
+                    detail: ex.ToString(),
+                    statusCode: 500
+                );
+            }
+            throw;
         }
-
-        return NoContent();
     }
-
-
 }
