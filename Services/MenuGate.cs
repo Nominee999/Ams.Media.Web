@@ -1,8 +1,9 @@
 ﻿// ===== FILE: Services/MenuGate.cs =====
-using System.Reflection;
 using Ams.Media.Web.Data;
 using Ams.Media.Web.Models; // ต้องมี MenuItemVm และ SecurityMenu
 using Microsoft.EntityFrameworkCore;
+using System;
+using System.Reflection;
 
 namespace Ams.Media.Web.Services
 {
@@ -15,12 +16,6 @@ namespace Ams.Media.Web.Services
             _db = db;
         }
 
-        /// <summary>
-        /// ดึงเมนูย่อยตามกลุ่มตัวอักษร (M/T/R/E/A/S) ของผู้ใช้ที่ระบุ
-        /// - อ่านสิทธิ์จาก Security_Menu (1 = มีสิทธิ์)
-        /// - ใช้ reflection ไล่พร็อพที่ขึ้นต้นด้วยตัวอักษรกลุ่ม (เช่น 'm' สำหรับ Master)
-        /// - แมป key -> (Text, Url, Icon) ด้วย MapMenuKey
-        /// </summary>
         public async Task<IReadOnlyList<MenuItemVm>> GetSubMenusAsync(char group, string username)
         {
             var g = char.ToUpperInvariant(group);
@@ -51,15 +46,31 @@ namespace Ams.Media.Web.Services
                 if ((raw ?? "0").Trim() != "1") continue; // ไม่มีสิทธิ์
 
                 var key = prop.Name; // เช่น mclient, mproduct, ...
-                var (text, url, icon) = MapMenuKey(key, g);
+                var kLower = (key ?? "").Trim().ToLowerInvariant();
+
+                // ✅ สำคัญ: map เมนู Client ให้ไปที่ Controller/Action ที่ถูกต้อง
+                if (g == 'M' && kLower == "mclient")
+                {
+                    items.Add(new MenuItemVm
+                    {
+                        Text = "Client",
+                        Controller = "Client",
+                        Action = "App",
+                        Icon = "bi bi-people",
+                        Enabled = true
+                    });
+                    continue;
+                }
+
+                // กลุ่มอื่น/คีย์อื่น ๆ fallback เป็นลิงก์ทั่วไป
+                var (text, url, icon) = MapFallback(key ?? string.Empty, g);
 
                 items.Add(new MenuItemVm
                 {
-                    // หมายเหตุ: ฟิลด์ใน MenuItemVm ของโปรเจกต์คุณควรมี Text/Url/Icon/Enabled
                     Text = text,
                     Url = url,
                     Icon = icon,
-                    Enabled = true   // ให้ผ่านเงื่อนไขใน Layout ที่อาจเช็ค x.Enabled
+                    Enabled = true
                 });
             }
 
@@ -68,8 +79,8 @@ namespace Ams.Media.Web.Services
                 .ToList();
         }
 
-        // ===== Helper: map key -> (Text, Url, Icon) =====
-        private static (string Text, string Url, string Icon) MapMenuKey(string key, char group)
+        // ===== Helper: fallback key -> (Text, Url, Icon) =====
+        private static (string Text, string Url, string Icon) MapFallback(string key, char group)
         {
             var safeKey = key ?? string.Empty;
             var k = safeKey.Trim().ToLowerInvariant();
@@ -77,16 +88,12 @@ namespace Ams.Media.Web.Services
             switch (char.ToUpperInvariant(group))
             {
                 case 'M':
-                    // กลุ่ม Master files — เพิ่ม mapping ได้ตามต้องการ
                     return k switch
                     {
-                        "mclient" => ("Client", "/Client", "bi bi-people"),
                         "mproduct" => ("Product", "/Product", "bi bi-box-seam"),
                         "mvendor" => ("Vendor", "/Vendor", "bi bi-building"),
                         _ => (safeKey, "#", "bi bi-folder")
                     };
-
-                // กลุ่มอื่น ๆ ยังไม่กำหนด mapping เฉพาะ → fallback
                 default:
                     return (safeKey, "#", "bi bi-folder");
             }

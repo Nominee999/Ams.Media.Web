@@ -1,16 +1,18 @@
-using Ams.Media.Web.Dtos;
+﻿using System.Threading;
+using System.Threading.Tasks;
+using Ams.Media.Web.Dto;
 
-namespace Ams.Media.Web.Repositories.Interfaces;
-
-public interface IClientRepository
+namespace Ams.Media.Web.Repositories.Interfaces
 {
-    Task<IReadOnlyList<ClientUsageRow>> GetUsageAsync(int clientCode, CancellationToken ct);
+    public interface IClientRepository
+    {
+        // ลิสต์หน้าแบบมี paging
+        Task<PagedResult<ClientRow>> ListAsync(string? q, int page, int pageSize, string showMode, CancellationToken ct);
 
-    Task<int> InsertClientAsync(ClientDto dto, CancellationToken ct);
-    Task UpdateClientAsync(int clientCode, ClientDto dto, CancellationToken ct);
-    Task UpsertAddressesAsync(int clientCode, IEnumerable<ClientAddressDto> addresses, CancellationToken ct);
-    Task DeleteAllAddressesAsync(int clientCode, CancellationToken ct);
-
-    Task<int> ExecClientDeleteSafeAsync(int clientCode, CancellationToken ct);
-    Task<bool> HasOverlapAsync(int clientCode, CancellationToken ct);
+        // ===== Client CRUD (ที่ Service เรียกใช้อยู่) =====
+        Task<ClientRow?> GetAsync(int clientId, CancellationToken ct);
+        Task<int> GetNextClientCodeAsync(CancellationToken ct);
+        Task<(bool ok, string? message, ClientRow? saved)> SaveAsync(ClientRow dto, CancellationToken ct);
+        Task<(bool ok, string? reason)> SafeDeleteAsync(int clientId, CancellationToken ct);
+    }
 }

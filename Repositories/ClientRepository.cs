@@ -1,225 +1,247 @@
-﻿using System.Data;
-using Ams.Media.Web.Data;
-using Ams.Media.Web.Dtos;
-using Ams.Media.Web.Repositories.Interfaces;
+﻿using System;
+using System.Collections.Generic;
+using System.Data;
+using System.Linq;
+using System.Threading.Tasks;
+using Ams.Media.Web.Dto;
 using Dapper;
 using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Configuration;
 
-namespace Ams.Media.Web.Repositories;
-
-// Primary constructor (C# 12)
-public sealed class ClientRepository(DbConnectionFactory db) : IClientRepository
+namespace Ams.Media.Web.Repositories
 {
-    public async Task<IReadOnlyList<ClientUsageRow>> GetUsageAsync(int clientCode, CancellationToken ct, IDbTransaction? tx = null)
+    public interface IClientRepository
     {
-        // 8 ตารางตามที่ยืนยัน
-        var tables = new[]
-        {
-        "TransactionMaster",
-        "Transactionkeymaster",
-        "PlanDetail",
-        "Product",
-        "Campaign",
-        "Material",
-        "Booking",
-        "Job"
-    };
+        Task<IEnumerable<ClientRow>> FindByNameAsync(string from, string to, string showMode);
+        Task<IEnumerable<ClientRow>> FindByIdAsync(long id);
+        Task<long> AddAsync(ClientRow input);
+        Task<bool> UpdateAsync(ClientRow input);
+        Task<(bool Success, string? Message)> DeleteFlagAsync(long id);
+        Task<bool> CheckUsedInTransactionsAsync(long clientId);
 
-        var results = new List<ClientUsageRow>(tables.Length);
-        var con = tx?.Connection ?? db.Create();
-        var disposeCon = tx is null;
+        // ★ ใหม่: ค้นหาอิสระ (ClientID / ClieName / ClientPrefix / ClientTaxNo)
+        Task<IEnumerable<ClientRow>> SearchFreeAsync(string? q, string showMode);
+    }
 
-        try
+    public sealed class ClientRepository : IClientRepository
+    {
+        private readonly string _conn;
+
+        public ClientRepository(IConfiguration configuration)
         {
-            foreach (var tbl in tables)
+            _conn = configuration.GetConnectionString("AmsDb")
+                ?? throw new InvalidOperationException("ConnectionStrings:AmsDb not found.");
+        }
+
+        private IDbConnection Open() => new SqlConnection(_conn);
+
+        // ใช้คลาส raw (nullable) เพื่อรับค่าจาก DB/SP อย่างปลอดภัย
+        private sealed class RawClientRow
+        {
+            public long? CLIENTID { get; set; }
+            public string? CLIENAME { get; set; }
+            public decimal? AGENCYCOM { get; set; }
+            public string? CLIENTPREFIX { get; set; }
+            public int? CREDITTERM { get; set; }
+            public string? CLIENTTAXNO { get; set; }
+        }
+
+        private static ClientRow MapToDto(RawClientRow r) => new ClientRow
+        {
+            ClientId = r.CLIENTID ?? 0L,
+            Description = r.CLIENAME ?? string.Empty,
+            AgencyCom = r.AGENCYCOM ?? 0m,
+            ClientPrefix = r.CLIENTPREFIX ?? string.Empty,
+            CreditTerm = r.CREDITTERM ?? 0
+        };
+
+        public async Task<IEnumerable<ClientRow>> FindByNameAsync(string from, string to, string showMode)
+        {
+            using var con = Open();
+
+            var raws = await con.QueryAsync<RawClientRow>(
+                "sp_find_NameRange",
+                new { sType = "CLIENT", sFrom = from ?? string.Empty, sTo = to ?? string.Empty, sShow = showMode ?? "C" },
+                commandType: CommandType.StoredProcedure);
+
+            var list = raws.Select(MapToDto).ToList();
+
+            foreach (var x in list)
             {
-                try
+                x.IsNotUse = !string.IsNullOrWhiteSpace(x.Description)
+                             && x.Description.IndexOf("NOT USE", StringComparison.OrdinalIgnoreCase) >= 0;
+
+                if (x.ClientId > 0)
                 {
-                    // หา schema อัตโนมัติ + หาคอลัมน์คีย์ (ClientCode / ClientID / Client_Id)
-                    var sql = @"
-DECLARE @schema sysname, @col sysname, @cnt int = 0;
-
-SELECT TOP (1) @schema = s.name
-FROM sys.tables t
-JOIN sys.schemas s ON s.schema_id = t.schema_id
-WHERE t.name = @tbl;
-
-IF @schema IS NOT NULL
-BEGIN
-    IF COL_LENGTH(QUOTENAME(@schema)+'.'+QUOTENAME(@tbl), 'ClientCode') IS NOT NULL
-        SET @col = N'ClientCode';
-    ELSE IF COL_LENGTH(QUOTENAME(@schema)+'.'+QUOTENAME(@tbl), 'ClientID') IS NOT NULL
-        SET @col = N'ClientID';
-    ELSE IF COL_LENGTH(QUOTENAME(@schema)+'.'+QUOTENAME(@tbl), 'Client_Id') IS NOT NULL
-        SET @col = N'Client_Id';
-
-    IF @col IS NOT NULL
-    BEGIN
-        DECLARE @sql nvarchar(max) =
-            N'SELECT @cntOut = COUNT(*) FROM ' + QUOTENAME(@schema)+N'.'+QUOTENAME(@tbl) +
-            N' WHERE ' + QUOTENAME(@col) + N' = @p';
-        EXEC sp_executesql @sql, N'@p int, @cntOut int OUTPUT', @p = @clientCode, @cntOut = @cnt OUTPUT;
-    END
-END
-
-SELECT @cnt;";
-
-                    var cnt = await con.ExecuteScalarAsync<int>(new CommandDefinition(
-                        sql, new { tbl, clientCode }, transaction: tx, cancellationToken: ct));
-
-                    results.Add(new ClientUsageRow { Module = tbl, Count = cnt });
+                    var cnt = await con.ExecuteScalarAsync<int>(
+                        "SELECT COUNT(*) FROM transactionkeymaster WHERE clientcode=@id",
+                        new { id = x.ClientId });
+                    x.IsInUse = cnt > 0;
                 }
-                catch
+                else
                 {
-                    // ถ้าตาราง/สิทธิ์/ชื่อคอลัมน์มีปัญหา → คืน 0 แล้วข้ามไปตัวต่อไป
-                    results.Add(new ClientUsageRow { Module = tbl, Count = 0 });
+                    x.IsInUse = false;
                 }
             }
 
-            return results;
+            if ((showMode ?? "C").Equals("C", StringComparison.OrdinalIgnoreCase))
+                list = list.Where(x => !x.IsNotUse).ToList();
+
+            return list;
         }
-        finally
+
+        public async Task<IEnumerable<ClientRow>> FindByIdAsync(long id)
         {
-            if (disposeCon) con.Dispose();
-        }
-    }
+            using var con = Open();
 
-    public async Task<int> InsertClientAsync(ClientDto dto, CancellationToken ct)
-    {
-        const string sql = """
-INSERT INTO Clients (ClientCode, ClieName, AgencyCom, ClientPrefix, ClientBranch, ClientTaxNo, CreditTerm, ClientStatus)
-VALUES (@ClientCode, @ClieName, @AgencyCom, @ClientPrefix, @ClientBranch, @ClientTaxNo, @CreditTerm, @ClientStatus);
-""";
+            var raws = await con.QueryAsync<RawClientRow>(
+                "sp_find_ID",
+                new { sType = "CLIENT", sID = id },
+                commandType: CommandType.StoredProcedure);
 
-        // CA1512: ใช้ Throw helper
-        ArgumentNullException.ThrowIfNull(dto.ClientCode);
+            var list = raws.Select(MapToDto).ToList();
 
-        using var con = db.Create();
-        await con.ExecuteAsync(new CommandDefinition(sql, new
-        {
-            ClientCode = dto.ClientCode,
-            dto.ClieName,
-            dto.AgencyCom,
-            dto.ClientPrefix,
-            dto.ClientBranch,
-            dto.ClientTaxNo,
-            dto.CreditTerm,
-            dto.ClientStatus
-        }, cancellationToken: ct));
-
-        return dto.ClientCode!.Value;
-    }
-
-    public async Task UpdateClientAsync(int clientCode, ClientDto dto, CancellationToken ct)
-    {
-        const string sql = """
-UPDATE Clients SET
-  ClieName = @ClieName,
-  AgencyCom = @AgencyCom,
-  ClientPrefix = @ClientPrefix,
-  ClientBranch = @ClientBranch,
-  ClientTaxNo = @ClientTaxNo,
-  CreditTerm = @CreditTerm,
-  ClientStatus = @ClientStatus
-WHERE ClientCode = @ClientCode;
-""";
-
-        using var con = db.Create();
-        await con.ExecuteAsync(new CommandDefinition(sql, new
-        {
-            ClientCode = clientCode,
-            dto.ClieName,
-            dto.AgencyCom,
-            dto.ClientPrefix,
-            dto.ClientBranch,
-            dto.ClientTaxNo,
-            dto.CreditTerm,
-            dto.ClientStatus
-        }, cancellationToken: ct));
-    }
-
-    public async Task UpsertAddressesAsync(int clientCode, IEnumerable<ClientAddressDto> addresses, CancellationToken ct)
-    {
-        using var con = db.Create();
-        con.Open(); // ใช้ Open() แทน OpenAsync() (แก้ error IDbConnection)
-
-        using var tx = con.BeginTransaction();
-        try
-        {
-            await con.ExecuteAsync(new CommandDefinition(
-                "DELETE FROM ClientAddress WHERE ClientCode = @ClientCode",
-                new { clientCode }, tx, cancellationToken: ct));
-
-            const string ins = """
-INSERT INTO ClientAddress (ClientCode, AddressType, Address1, StartDate, EndDate)
-VALUES (@ClientCode, @AddressType, @Address1, @StartDate, @EndDate);
-""";
-
-            foreach (var a in addresses)
+            foreach (var x in list)
             {
-                await con.ExecuteAsync(new CommandDefinition(ins, new
+                x.IsNotUse = !string.IsNullOrWhiteSpace(x.Description)
+                             && x.Description.IndexOf("NOT USE", StringComparison.OrdinalIgnoreCase) >= 0;
+
+                if (x.ClientId > 0)
                 {
-                    ClientCode = clientCode,
-                    a.AddressType,
-                    a.Address1,
-                    a.StartDate,
-                    a.EndDate
-                }, tx, cancellationToken: ct));
+                    var cnt = await con.ExecuteScalarAsync<int>(
+                        "SELECT COUNT(*) FROM transactionkeymaster WHERE clientcode=@id",
+                        new { id = x.ClientId });
+                    x.IsInUse = cnt > 0;
+                }
+                else
+                {
+                    x.IsInUse = false;
+                }
             }
 
-            tx.Commit();
+            return list;
         }
-        catch
-        {
-            tx.Rollback();
-            throw;
-        }
-    }
 
-    public async Task DeleteAllAddressesAsync(int clientCode, CancellationToken ct)
-    {
-        using var con = db.Create();
-        await con.ExecuteAsync(new CommandDefinition(
-            "DELETE FROM ClientAddress WHERE ClientCode = @ClientCode",
-            new { clientCode }, cancellationToken: ct));
-    }
-
-    public async Task<int> ExecClientDeleteSafeAsync(int clientCode, CancellationToken ct)
-    {
-        using var con = db.Create();
-        var p = new DynamicParameters();
-        p.Add("@ClientCode", clientCode, DbType.Int32, ParameterDirection.Input);
-        try
+        // ★ ใหม่: ค้นหาฟรีเท็กซ์ยิง DB ตรง ๆ ตาม 4 ฟิลด์
+        public async Task<IEnumerable<ClientRow>> SearchFreeAsync(string? q, string showMode)
         {
-            await con.ExecuteAsync(new CommandDefinition("Client_DeleteSafe", p, commandType: CommandType.StoredProcedure, cancellationToken: ct));
-            return 1;
-        }
-        catch (SqlException ex) when (ex.Number >= 50000 || ex.Class >= 16)
-        {
-            return 0;
-        }
-    }
+            using var con = Open();
 
-    public async Task<bool> HasOverlapAsync(int clientCode, CancellationToken ct)
-    {
-        const string sql = """
-;WITH R AS (
-  SELECT
-    AddressType,
-    CAST(StartDate AS date) AS S,
-    CAST(ISNULL(EndDate, '9999-12-31') AS date) AS E
-  FROM ClientAddress
-  WHERE ClientCode = @ClientCode
-)
-SELECT TOP 1 1
-FROM R a
-JOIN R b
-  ON a.AddressType = b.AddressType
- AND (a.S <= b.E AND b.S <= a.E)
- AND NOT (a.S = b.S AND a.E = b.E);
-""";
-        using var con = db.Create();
-        var result = await con.ExecuteScalarAsync<int?>(new CommandDefinition(sql, new { clientCode }, cancellationToken: ct));
-        return result.HasValue;
+            // ถ้าไม่ใส่คำค้น ให้คืนลิสต์ช่วงชื่อแบบเดิม (กันหน้าโล่ง)
+            if (string.IsNullOrWhiteSpace(q))
+                return await FindByNameAsync("", "", showMode);
+
+            var term = (q ?? "").Trim();
+
+            const string sql = @"
+SELECT
+    ClientID   AS CLIENTID,
+    ClieName   AS CLIENAME,
+    AgencyCom  AS AGENCYCOM,
+    ClientPrefix AS CLIENTPREFIX,
+    CreditTerm AS CREDITTERM,
+    ClientTaxNo AS CLIENTTAXNO
+FROM dbo.Client WITH (NOLOCK)
+WHERE
+    (
+        CONVERT(NVARCHAR(50), ClientID) LIKE '%' + @q + '%' OR
+        ClieName      LIKE '%' + @q + '%' OR
+        ClientPrefix  LIKE '%' + @q + '%' OR
+        ClientTaxNo   LIKE '%' + @q + '%'
+    )
+    AND (@show <> 'C' OR ClieName NOT LIKE '%NOT USE%')
+ORDER BY ClientID;";
+
+            var raws = await con.QueryAsync<RawClientRow>(sql, new { q = term, show = (showMode ?? "C").ToUpperInvariant() });
+
+            var list = raws.Select(MapToDto).ToList();
+
+            // ธงแสดงผล
+            foreach (var x in list)
+            {
+                x.IsNotUse = !string.IsNullOrWhiteSpace(x.Description)
+                             && x.Description.IndexOf("NOT USE", StringComparison.OrdinalIgnoreCase) >= 0;
+
+                if (x.ClientId > 0)
+                {
+                    var cnt = await con.ExecuteScalarAsync<int>(
+                        "SELECT COUNT(*) FROM transactionkeymaster WHERE clientcode=@id",
+                        new { id = x.ClientId });
+                    x.IsInUse = cnt > 0;
+                }
+            }
+
+            return list;
+        }
+
+        public async Task<long> AddAsync(ClientRow input)
+        {
+            if (input.AgencyCom < 0 || input.AgencyCom > 100)
+                throw new ArgumentOutOfRangeException(nameof(input.AgencyCom), "AgencyCom must be between 0 and 100.");
+            if (input.CreditTerm < 0 || input.CreditTerm > 365)
+                throw new ArgumentOutOfRangeException(nameof(input.CreditTerm), "CreditTerm must be between 0 and 365.");
+
+            using var con = Open();
+            var p = new DynamicParameters();
+            p.Add("@ret", dbType: DbType.String, size: 100, direction: ParameterDirection.InputOutput);
+            p.Add("@DirectoryId", 0);
+            p.Add("@DirName", (input.Description ?? string.Empty).Trim());
+            p.Add("@AgencyCom", input.AgencyCom);
+            p.Add("@ClientPrefix", (input.ClientPrefix ?? string.Empty).Trim());
+            p.Add("@CreditTerm", input.CreditTerm);
+
+            await con.ExecuteAsync("sp_add_client", p, commandType: CommandType.StoredProcedure);
+
+            var ret = p.Get<string>("@ret");
+            if (long.TryParse(ret, out var newId)) return newId;
+
+            var q = @"SELECT TOP(1) ClientID FROM Client WITH (NOLOCK)
+                      WHERE ClieName = @n ORDER BY ClientID DESC";
+            return await con.ExecuteScalarAsync<long>(q, new { n = (input.Description ?? string.Empty).Trim() });
+        }
+
+        public async Task<bool> UpdateAsync(ClientRow input)
+        {
+            if (input.AgencyCom < 0 || input.AgencyCom > 100)
+                throw new ArgumentOutOfRangeException(nameof(input.AgencyCom), "AgencyCom must be between 0 and 100.");
+            if (input.CreditTerm < 0 || input.CreditTerm > 365)
+                throw new ArgumentOutOfRangeException(nameof(input.CreditTerm), "CreditTerm must be between 0 and 365.");
+
+            using var con = Open();
+            var p = new DynamicParameters();
+            p.Add("@ret", dbType: DbType.String, size: 100, direction: ParameterDirection.InputOutput);
+            p.Add("@DirectoryId", input.ClientId);
+            p.Add("@DirName", (input.Description ?? string.Empty).Trim());
+            p.Add("@AgencyCom", input.AgencyCom);
+            p.Add("@ClientPrefix", (input.ClientPrefix ?? string.Empty).Trim());
+            p.Add("@CreditTerm", input.CreditTerm);
+
+            await con.ExecuteAsync("sp_update_client", p, commandType: CommandType.StoredProcedure);
+            var ret = p.Get<string>("@ret");
+            return string.IsNullOrWhiteSpace(ret) || long.TryParse(ret, out _);
+        }
+
+        public async Task<(bool Success, string? Message)> DeleteFlagAsync(long id)
+        {
+            using var con = Open();
+            var p = new DynamicParameters();
+            p.Add("@ret", dbType: DbType.String, size: 200, direction: ParameterDirection.InputOutput);
+            p.Add("@DirectoryId", id);
+            await con.ExecuteAsync("sp_delete_client", p, commandType: CommandType.StoredProcedure);
+            var ret = p.Get<string>("@ret");
+            if (string.IsNullOrWhiteSpace(ret) || ret == "0")
+                return (true, null);
+            return (false, ret);
+        }
+
+        public async Task<bool> CheckUsedInTransactionsAsync(long clientId)
+        {
+            using var con = Open();
+            if (clientId <= 0) return false;
+            var cnt = await con.ExecuteScalarAsync<int>(
+                "SELECT COUNT(*) FROM transactionkeymaster WHERE clientcode=@id",
+                new { id = clientId });
+            return cnt > 0;
+        }
     }
 }

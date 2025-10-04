@@ -1,0 +1,129 @@
+﻿@model IEnumerable<Ams.Media.Web.Dto.ClientRow>
+
+<style>
+    /* header bar เหนือกริด */
+    .grid-toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: .5rem;
+        gap: .5rem;
+        flex-wrap: wrap;
+    }
+
+        .grid-toolbar .search-box {
+            display: flex;
+            gap: .5rem;
+            align-items: center;
+            flex: 1 1 360px;
+        }
+
+    /* ปุ่มคู่ให้กว้างเท่ากัน (Search/New) */
+    .btn-twin {
+        min-width: 120px; /* ปรับเลขนี้ได้ตามที่ต้องการ */
+    }
+
+    /* หัวตารางอ่านชัดทั้ง Dark/Light */
+    .client-grid thead th {
+        background: var(--bs-tertiary-bg);
+        color: var(--bs-body-color);
+        border-bottom: 1px solid var(--bs-border-color);
+    }
+
+    /* ปุ่ม Edit ให้ชัดใน Light mode (solid → ปรับใน site.css ด้วย .btn-edit) */
+    :root[data-bs-theme="light"] .btn-edit {
+        color: #fff;
+    }
+
+    /* จัดปุ่มให้อยู่แนวเดียวและกว้างพอ ๆ กันสำหรับแถว */
+    .row-actions .btn-fixed {
+        min-width: 86px;
+    }
+
+    .row-actions .btn + .btn {
+        margin-left: .375rem;
+    }
+</style>
+
+<!-- แถบเครื่องมือ: Search (ยิง DB ผ่าน /Client/Grid) + ปุ่ม New -->
+<div class="grid-toolbar">
+    <form class="search-box"
+          hx-get="/Client/Grid"
+          hx-target="#Grid"
+          hx-swap="innerHTML"
+          hx-trigger="submit">
+        <input type="text"
+               name="q"
+               class="form-control"
+               placeholder="Search: ClientID / Name / Prefix / TaxId" />
+        <button type="submit" class="btn btn-primary btn-twin">
+            <i class="bi bi-search"></i> Search
+        </button>
+        <button type="button"
+                class="btn btn-outline-secondary"
+                onclick="this.form.reset(); this.form.dispatchEvent(new Event('submit', {bubbles:true}));">
+            Clear
+        </button>
+    </form>
+
+    <div class="d-flex align-items-center">
+        <a asp-action="New" class="btn btn-success btn-twin">
+            <i class="bi bi-plus-circle me-1"></i> New
+        </a>
+    </div>
+</div>
+
+<div class="table-responsive">
+    <table class="table table-sm align-middle client-grid">
+        <thead>
+            <tr>
+                <th>Client ID</th>
+                <th>Name</th>
+                <th class="text-center">Commission</th>
+                <th>Prefix</th>
+                <th class="text-center">Credit Term</th>
+                <th class="text-center">Status</th>
+                <th class="text-end" style="width: 300px;">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var x in Model)
+            {
+                var status = x.IsNotUse ? "Not Use" : (x.IsInUse ? "In Use" : "Active");
+                var badge = x.IsNotUse ? "secondary" : (x.IsInUse ? "success" : "primary");
+                var rowCls = x.IsNotUse ? "text-secondary" : (x.IsInUse ? "text-success" : "");
+
+                <tr class="@rowCls">
+                    <td class="text-nowrap">@x.ClientId</td>
+                    <td class="text-truncate" title="@x.Description">@x.Description</td>
+                    <td class="text-center text-nowrap">@x.AgencyCom.ToString("0.##")%</td>
+                    <td class="text-nowrap">@x.ClientPrefix</td>
+                    <td class="text-center text-nowrap">@x.CreditTerm</td>
+                    <td class="text-center">
+                        <span class="badge text-bg-@badge">@status</span>
+                    </td>
+                    <td class="text-end">
+                        <div class="row-actions d-inline-flex">
+                            <!-- Edit: ใช้ปุ่ม solid (primary) + คลาส .btn-edit (site.css จะทำให้ชัดใน Light) -->
+                            <a asp-action="Edit" asp-route-id="@x.ClientId"
+                               class="btn btn-primary btn-sm btn-fixed btn-edit">
+                                <i class="bi bi-pencil-square"></i> Edit
+                            </a>
+
+                            <a asp-action="Address" asp-route-id="@x.ClientId"
+                               class="btn btn-outline-secondary btn-sm btn-fixed">
+                                <i class="bi bi-geo-alt"></i> Address
+                            </a>
+
+                            <a asp-action="Delete" asp-route-id="@x.ClientId"
+                               class="btn btn-outline-danger btn-sm btn-fixed"
+                               onclick="return confirm('Delete this client?');">
+                                <i class="bi bi-trash"></i> Delete
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>

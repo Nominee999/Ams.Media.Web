@@ -1,0 +1,32 @@
+﻿@{
+    // model (string?) จะเป็น "dark"/"light" เมื่อมาจาก Toggle action
+    var cookie = Context.Request.Cookies.TryGetValue("Theme", out var v) ? v : null;
+    var mode = (Model as string) ?? cookie ?? "dark";
+    mode = (mode?.ToLowerInvariant() == "light") ? "light" : "dark";
+    var isDark = mode == "dark";
+    var id = "themeSwitch_" + Guid.NewGuid().ToString("N");
+}
+
+<form hx-post="/flags/theme/toggle"
+      hx-swap="outerHTML"
+      class="d-inline">
+
+    <div class="form-check form-switch d-inline-flex align-items-center gap-2 mb-0">
+        <input class="form-check-input" type="checkbox" role="switch" id="@id"
+               @(isDark ? "checked" : null)
+               onchange="/* htmx will post by form submit */ this.closest('form').requestSubmit();" />
+        <label class="form-check-label small" for="@id">
+            <i class="bi @(isDark ? "bi-moon-stars" : "bi-sun") me-1"></i>
+            @(isDark ? "Dark" : "Light")
+        </label>
+    </div>
+</form>
+
+<script>
+    // อัปเดต data-bs-theme ให้ตรงกับสถานะล่าสุด (เมื่อ partial นี้ถูกสลับเข้ามา)
+    (function(){
+        var theme = '@mode';
+        if (theme !== 'dark' && theme !== 'light') theme = 'dark';
+        document.documentElement.setAttribute('data-bs-theme', theme);
+    })();
+</script>

@@ -1,0 +1,51 @@
+﻿@{
+    ViewData["Title"] = "Client Master";
+}
+
+<section class="card bg-body border-0 shadow-sm">
+    <div class="card-body">
+        <div class="d-flex align-items-center justify-content-between">
+            <h5 class="card-title mb-0">Client Master</h5>
+
+            <!-- ปุ่ม A/C ย้ายไป Navbar แล้ว ตามที่ทำไว้ -->
+        </div>
+
+
+
+        <div id="Loading" class="small text-muted mt-2" style="display:none;">กำลังโหลด...</div>
+
+        <div id="Grid"
+             class="mt-3"
+             hx-get="/Client/Grid"
+             hx-trigger="load"
+             hx-indicator="#Loading">
+            <div class="small text-muted">กำลังโหลด...</div>
+        </div>
+    </div>
+</section>
+
+@section Scripts {
+    <script>
+        // กด Enter ในช่องค้นหา = กดปุ่ม Search
+        document.getElementById('q').addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                document.getElementById('btnSearch').click();
+            }
+        });
+
+        // แสดง/ซ่อนตัวชี้โหลด ในกรณีไม่ได้ใช้ hx-indicator
+        document.body.addEventListener('htmx:beforeRequest', () => {
+            const el = document.querySelector('#Loading');
+            if (el) el.style.display = '';
+        });
+        document.body.addEventListener('htmx:afterOnLoad', () => {
+            const el = document.querySelector('#Loading');
+            if (el) el.style.display = 'none';
+        });
+        document.body.addEventListener('htmx:responseError', (evt) => {
+            const el = document.querySelector('#Loading');
+            if (el) el.textContent = `Error ${evt.detail.xhr.status}: ${evt.detail.xhr.statusText}`;
+        });
+    </script>
+}

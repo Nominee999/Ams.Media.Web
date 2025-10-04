@@ -1,13 +1,246 @@
-body {
-    padding-bottom: 40px
+﻿/* =========================================================
+   AMS Media - site.css  (FULL FILE)
+   - เคลียร์ selector เก่า (#ClientGrid ...) ออกทั้งหมด
+   - รองรับ DARK/LIGHT Theme ผ่าน data-bs-theme
+   - ปรับตาราง Client (client-grid) + ปุ่ม Edit/Address/Delete
+   - ทำ footer ให้เกาะล่างแบบ sticky
+   ========================================================= */
+
+/* ===== Base / Layout ===== */
+html, body {
+    height: 100%;
 }
 
+body {
+    display: flex;
+    flex-direction: column;
+    padding-bottom: 0; /* ใช้ footer แบบ sticky */
+    background-color: var(--bs-body-bg);
+    color: var(--bs-body-color);
+}
+
+main.container, main .container {
+    flex: 1 0 auto;
+}
+
+footer {
+    flex-shrink: 0;
+    border-top: 1px solid var(--bs-border-color);
+    background: var(--bs-tertiary-bg);
+}
+
+/* ปรับความกว้างเนื้อหาโดยรวมให้โปร่งขึ้น */
+main.container {
+    max-width: 1280px;
+}
+
+/* Navbar dropdown scroll safety */
 .navbar-nav .dropdown-menu {
     max-height: 60vh;
-    overflow: auto
+    overflow: auto;
 }
 
-/* ��͹ validation summary �͹�������� error */
+/* ซ่อน validation summary ตอนที่ไม่มี error */
 .validation-summary-valid {
     display: none;
 }
+
+/* ===== THEME VARIABLES (Bootstrap 5.3 via data-bs-theme) ===== */
+/* Default → DARK */
+:root {
+    color-scheme: dark;
+    --bs-body-bg: #0f1218;
+    --bs-body-color: #e9edf1;
+    --bs-tertiary-bg: #10151f;
+    --bs-card-bg: #141923;
+    --bs-border-color: #2b3240;
+    --bs-table-bg: #0f1218;
+    --bs-table-striped-bg: #111623;
+    --bs-table-hover-bg: #162032;
+    --bs-link-color: #6ea8fe;
+    --bs-primary: #0d6efd;
+}
+
+    /* Light overrides */
+    :root[data-bs-theme="light"] {
+        color-scheme: light;
+        --bs-body-bg: #f5f7fb;
+        --bs-body-color: #1f2328;
+        --bs-tertiary-bg: #f1f3f6;
+        --bs-card-bg: #ffffff;
+        --bs-border-color: #dee2e6;
+        --bs-table-bg: #ffffff;
+        --bs-table-striped-bg: #f8f9fb;
+        --bs-table-hover-bg: #f2f4f8;
+        --bs-link-color: #0d6efd;
+        --bs-primary: #0d6efd;
+    }
+
+/* Header/NavBar (อ่านชัดทั้ง Dark/Light) */
+.navbar,
+.navbar-light,
+.navbar.bg-light {
+    background: var(--bs-tertiary-bg) !important;
+    border-bottom: 1px solid var(--bs-border-color) !important;
+}
+
+/* Card */
+.card {
+    background-color: var(--bs-card-bg);
+    border-color: var(--bs-border-color);
+}
+
+/* ===== Forms ===== */
+/* Search box ใน Dark ให้มืดอ่านง่าย */
+:root:not([data-bs-theme="light"]) .form-control {
+    background-color: #0e1420;
+    border-color: #2b3240;
+    color: #e9edf1;
+}
+
+    :root:not([data-bs-theme="light"]) .form-control::placeholder {
+        color: #9fb0c9;
+    }
+
+/* ปรับปุ่ม outline ให้เห็นชัดทั้ง Dark/Light */
+.btn-outline-secondary {
+    border-color: var(--bs-border-color);
+}
+
+/* ===== Tables (Client Grid) ===== */
+.client-grid {
+    table-layout: fixed;
+}
+    /* ให้คอลัมน์เคารพความกว้างที่กำหนด */
+    .client-grid th, .client-grid td {
+        vertical-align: middle;
+    }
+
+    /* Header สีอ่านง่ายใน Dark/Light */
+    .client-grid thead th {
+        background: #1b2330;
+        color: #cfe0ff;
+        border-bottom: 1px solid var(--bs-border-color);
+    }
+
+:root[data-bs-theme="light"] .client-grid thead th {
+    background: #e9edf3;
+    color: #1f2328;
+}
+
+/* แถบสลับแถว/hover */
+.client-grid tbody tr:nth-child(2n) {
+    background-color: var(--bs-table-striped-bg);
+}
+
+.client-grid tbody tr:hover {
+    background-color: var(--bs-table-hover-bg);
+}
+
+/* === จำกัดความกว้างคอลัมน์ ===
+   1 = Client Code, 2 = Description, 3 = Commission, 4 = Prefix, 5 = CreditTerm, 6 = Status, 7 = Actions */
+.client-grid th:nth-child(1), .client-grid td:nth-child(1) {
+    width: 100px;
+}
+
+.client-grid th:nth-child(2), .client-grid td:nth-child(2) {
+    width: 110px; /* >>> ตามที่ร้องขอ: Description = 110px <<< */
+    max-width: 110px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.client-grid th:nth-child(3), .client-grid td:nth-child(3) {
+    width: 110px;
+    text-align: center;
+}
+
+.client-grid th:nth-child(4), .client-grid td:nth-child(4) {
+    width: 110px;
+}
+
+.client-grid th:nth-child(5), .client-grid td:nth-child(5) {
+    width: 100px;
+    text-align: center;
+}
+
+.client-grid th:nth-child(6), .client-grid td:nth-child(6) {
+    width: 110px;
+    text-align: center;
+}
+
+.client-grid th:nth-child(7), .client-grid td:nth-child(7) {
+    width: 320px;
+}
+
+/* ข้อความ Description ให้ตัด ... หากยาวเกิน */
+.desc-ellipsis {
+    display: inline-block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ===== Actions row: ปุ่มให้เท่ากันและอยู่ระนาบเดียวกัน ===== */
+.actions-nowrap {
+    white-space: nowrap;
+}
+
+.btn-fixed {
+    min-width: 86px;
+}
+/* ทำให้ Edit/Address/Delete กว้างพอๆ กัน */
+.actions-nowrap .btn + .btn,
+.actions-nowrap form + .btn,
+.actions-nowrap .btn + form,
+.actions-nowrap form + form {
+    margin-left: .375rem;
+}
+
+/* ปุ่ม Edit
+   - ใน LIGHT ให้หน้าตา "เหมือน" ปุ่ม Address (outline-secondary)
+   - ใน DARK ให้เป็น primary เพื่อเด่นชัด */
+:root[data-bs-theme="light"] .btn-edit {
+    background-color: transparent !important;
+    color: #1f2328 !important;
+    border: 1px solid #ced4da !important; /* โทนเดียวกับ outline-secondary */
+}
+
+:root:not([data-bs-theme="light"]) .btn-edit {
+    background-color: var(--bs-primary) !important;
+    border-color: var(--bs-primary) !important;
+    color: #fff !important;
+}
+
+/* ป้ายสถานะให้ตัวหนังสืออ่านง่ายใน dark */
+:root:not([data-bs-theme="light"]) .badge.text-bg-primary {
+    color: #fff;
+}
+
+:root:not([data-bs-theme="light"]) .badge.text-bg-secondary {
+    color: #fff;
+}
+
+/* ===== Utilities ===== */
+.table-darkmode {
+    --bs-table-bg: var(--bs-table-bg);
+    --bs-table-striped-bg: var(--bs-table-striped-bg);
+    --bs-table-hover-bg: var(--bs-table-hover-bg);
+    color: var(--bs-body-color);
+    border-color: var(--bs-border-color);
+}
+
+/* ====== (สำคัญ) เคลียร์ Selector เก่า #ClientGrid ======
+   หมายเหตุ: โค้ดเก่าด้านล่างถูกลบออกจากไฟล์นี้แล้ว
+   ---------------------------------------------------------
+   #ClientGrid { ... }
+   #ClientGrid thead th { ... }
+   #ClientGrid .actions ... { ... }
+   ---------------------------------------------------------
+   ให้ใช้ selector ใหม่:
+   - #Grid (container ปลายทาง HTMX)
+   - .client-grid (ตาราง)
+   - .actions-nowrap / .btn-fixed / .btn-edit
+   ======================================================= */

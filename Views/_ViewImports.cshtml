@@ -1,4 +1,10 @@
 ﻿@addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
-@using Ams.Media.Web
-@using Ams.Media.Web.Models
-@using Ams.Media.Web.Services
+
+@using System
+@using System.Linq
+@using System.Collections.Generic
+
+@using Ams.Media.Web <!-- ของเดิม -->
+@using Ams.Media.Web.Models  <!-- ถ้ายังมีบาง view ใช้อยู่ -->
+@using Ams.Media.Web.Dto  <!-- ✅ เพิ่มอันนี้ เพื่อให้ทุก view เห็น ClientRow / PagedResult -->
+@inject Microsoft.Extensions.Configuration.IConfiguration Configuration

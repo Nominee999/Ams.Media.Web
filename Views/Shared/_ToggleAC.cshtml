@@ -1,0 +1,21 @@
+﻿@model string
+@{
+    var m = (Model ?? "C").Trim().ToUpperInvariant();
+    var isCurrent = m == "C";                 // checked=ON=Current
+    var acInputId = "acSwitch_" + Guid.NewGuid().ToString("N");
+}
+<span class="ac-toggle d-inline-block">
+    <div class="form-check form-switch d-inline-flex align-items-center gap-2 mb-0">
+        <input class="form-check-input" type="checkbox" role="switch" id="@acInputId"
+               @(isCurrent ? "checked" : null)
+               hx-post="/ui/toggle-ac"
+               hx-trigger="change"
+               hx-target="closest .ac-toggle"
+               hx-swap="outerHTML" />
+        <label class="form-check-label small" for="@acInputId">
+            <span class="badge rounded-pill @(isCurrent ? "text-bg-primary" : "text-bg-secondary")">
+                @(isCurrent ? "Current" : "All")
+            </span>
+        </label>
+    </div>
+</span>

@@ -1,76 +1,70 @@
-﻿using System.Globalization;
-using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.AspNetCore.Localization;
-using Microsoft.EntityFrameworkCore;
-using Ams.Media.Web.Data;
-using Ams.Media.Web.Services;
+﻿// Program.cs — AMS Media (NET 8)
 
-// ★ เพิ่ม using สำหรับ Options
-using Ams.Media.Web.Options;
- 
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.EntityFrameworkCore;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// MVC (+ RuntimeCompilation เฉพาะตอน Dev)
-var mvc = builder.Services.AddControllersWithViews();
-if (builder.Environment.IsDevelopment())
+// ================= MVC =================
+builder.Services.AddControllersWithViews();
+builder.Services.AddHttpContextAccessor();
+
+// ================= DbContext =================
+var connStr =
+    builder.Configuration.GetConnectionString("AmsDb")
+    ?? builder.Configuration.GetConnectionString("Default")
+    ?? "";
+
+builder.Services.AddDbContext<Ams.Media.Web.Data.AmsDbContext>(opt =>
 {
-    mvc.AddRazorRuntimeCompilation();
-}
+    opt.UseSqlServer(connStr);
+});
 
-// EF Core SQL Server
-builder.Services.AddDbContext<AmsDbContext>(opt =>
-    opt.UseSqlServer(builder.Configuration.GetConnectionString("AmsDb")));
+// ================= Dependency Injection =================
+// NOTE: ใช้ namespace เดียวกับที่ใช้อยู่จริงในโปรเจกต์ตอนนี้
+builder.Services.AddScoped<
+    Ams.Media.Web.Repositories.IClientRepository,
+    Ams.Media.Web.Repositories.ClientRepository>();
 
-// Cookie Auth
+builder.Services.AddScoped<
+    Ams.Media.Web.Services.IClientService,
+    Ams.Media.Web.Services.ClientService>();
+
+builder.Services.AddScoped<
+    Ams.Media.Web.Services.IAuthService,
+    Ams.Media.Web.Services.AuthService>();
+
+builder.Services.AddScoped<
+    Ams.Media.Web.Services.IMenuGate,
+    Ams.Media.Web.Services.MenuGate>();
+
+// ================= Authentication (Cookie) =================
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(o =>
     {
         o.LoginPath = "/Account/Login";
-        o.AccessDeniedPath = "/Account/Denied";
-        o.Cookie.Name = ".Ams.Media.Auth";
-        o.ExpireTimeSpan = TimeSpan.FromHours(8);
-        o.SlidingExpiration = true;
+        o.AccessDeniedPath = "/Denied";
+        o.Cookie.Name = "Ams.Media.Auth";
     });
 
-builder.Services.AddAuthorization();
-
-// Services กลาง
-builder.Services.AddSingleton<IDateTimeHelper, DateTimeHelper>();
-builder.Services.AddScoped<IMenuGate, MenuGate>();
-builder.Services.AddScoped<IAuthService, AuthService>();
-builder.Services.AddScoped<IQueryService, QueryService>();
- 
-// ★ Bind AmsOptions จาก appsettings:AMS
-builder.Services.Configure<AmsOptions>(
-    builder.Configuration.GetSection("AMS"));
-
+// ================= Build app =================
 var app = builder.Build();
 
-// ใช้ Culture: en-US, th-TH (Default = en-US)
-var supportedCultures = new[] { new CultureInfo("en-US"), new CultureInfo("th-TH") };
-app.UseRequestLocalization(new RequestLocalizationOptions
-{
-    DefaultRequestCulture = new RequestCulture("en-US"),
-    SupportedCultures = supportedCultures,
-    SupportedUICultures = supportedCultures
-});
-
+// ================= Pipeline =================
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Home/Error");
-    app.UseHsts();
+    // app.UseHsts();
 }
 
-app.UseHttpsRedirection();
 app.UseStaticFiles();
-
 app.UseRouting();
-
-app.UseAuthentication(); // ★ ต้องมาก่อน
+app.UseAuthentication();
 app.UseAuthorization();
 
+// ================= Routes =================
 app.MapControllerRoute(
     name: "default",
-    pattern: "{controller=Account}/{action=Login}/{id?}");
+    pattern: "{controller=Home}/{action=Index}/{id?}");
 
 app.Run();

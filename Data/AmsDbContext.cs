@@ -14,7 +14,7 @@ namespace Ams.Media.Web.Data
         public AmsDbContext(DbContextOptions<AmsDbContext> options) : base(options) { }
 
         // ctor สำหรับ HybridDbScope (เราส่ง SqlConnection เข้ามา)
-        public AmsDbContext(DbContextOptions options) : base(options) { }
+        //public AmsDbContext(DbContextOptions options) : base(options) { }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             // Security_menu : PK = username

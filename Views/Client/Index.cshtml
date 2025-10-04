@@ -1,9 +1,20 @@
 ﻿@{
     ViewData["Title"] = "Client Master";
+    Layout = "_Layout";
 }
-<div class="container py-4">
-    <h2 class="mb-3">Client Master</h2>
-    <div class="alert alert-info">
-        หน้าเปล่าสำหรับ Client (ยังไม่แสดงข้อมูล)
-    </div>
+
+<div class="min-h-screen bg-zinc-50">
+    <div id="client-master-root"></div>
 </div>
+
+@section Scripts {
+    <!-- DEV ONLY: Tailwind + React UMD -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <div id="client-master-root"></div>
+    <!-- React UMD -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- Loader -->
+    <script type="module" src="~/apps/client-master/app-loader.js" asp-append-version="true"></script>
+}
+
