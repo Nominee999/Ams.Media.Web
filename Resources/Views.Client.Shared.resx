@@ -1,0 +1,27 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+
+  <data name="Client Master"><value>Client Master</value></data>
+  <data name="Search code/name/prefix/tax"><value>Search code/name/prefix/tax</value></data>
+  <data name="Search"><value>Search</value></data>
+  <data name="+ New"><value>+ New</value></data>
+  <data name="Total"><value>Total</value></data>
+  <data name="Clean"><value>Clean</value></data>
+  <data name="All"><value>All</value></data>
+  <data name="Client Name"><value>Client Name</value></data>
+  <data name="Actions"><value>Actions</value></data>
+  <data name="Prev"><value>Prev</value></data>
+  <data name="Next"><value>Next</value></data>
+  <data name="Address"><value>Address</value></data>
+  <data name="Edit"><value>Edit</value></data>
+  <data name="Delete"><value>Delete</value></data>
+  <data name="Cannot Delete — In Use"><value>Cannot Delete — In Use</value></data>
+  <data name="Close"><value>Close</value></data>
+  <data name="This client is referenced and cannot be deleted."><value>This client is referenced and cannot be deleted.</value></data>
+  <data name="Table"><value>Table</value></data>
+  <data name="Count"><value>Count</value></data>
+</root>

@@ -1,67 +1,67 @@
-﻿using System;
+﻿// Controllers/Api/AddressesController.cs
+using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Ams.Media.Web.Dto;
-using Ams.Media.Web.Repositories.Interfaces;
+using Ams.Media.Web.Services;
 
 namespace Ams.Media.Web.Controllers.Api
 {
     [ApiController]
-    [Route("api/[controller]")]
-    [Produces("application/json")]
+    [Route("api/addresses")]
+    [Authorize]
     public sealed class AddressesController : ControllerBase
     {
-        private readonly IClientAddressRepository _repo;
+        private readonly IClientService _svc;
 
-        public AddressesController(IClientAddressRepository repo)
+        public AddressesController(IClientService svc)
         {
-            _repo = repo;
+            _svc = svc;
         }
 
-        /// <summary>
-        /// GET: /api/addresses?clientId=100000&type=1
-        /// </summary>
-        [HttpGet]
-        public async Task<IActionResult> List(
-            [FromQuery] int clientId,
-            [FromQuery] int? type,
-            CancellationToken ct)
+        // POST /api/addresses/upsert
+        [HttpPost("upsert")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Upsert([FromBody] AddressUpsertRequest req, CancellationToken ct)
         {
-            var items = await _repo.ListAsync(clientId, type, ct);
-            return Ok(items);
+            if (req == null) return BadRequest();
+
+            var dto = new ClientAddressDto
+            {
+                ClientId = req.ClientId,
+                AddressType = req.AddressType,
+                StartDate = req.StartDate,
+                EndDate = req.EndDate, // null = เปิดปลาย
+                AddressTitle = req.AddressName ?? req.AddressTitle,
+                Address01 = req.Address01,
+                Address02 = req.Address02,
+                Address03 = req.Address03,
+                Address04 = req.Address04
+            };
+
+            var ok = await _svc.AddressUpsertAsync(dto, req.OldStart, req.OldEnd, ct);
+            if (!ok) return Conflict(new { message = "Address date range overlaps" });
+
+            return Ok(new { message = "OK" });
         }
 
-        /// <summary>
-        /// POST: /api/addresses
-        /// Body: ClientAddressDto
-        /// Optional query: oldStart=yyyy-MM-dd&oldEnd=yyyy-MM-dd (เมื่อเป็นการแก้ไข)
-        /// </summary>
-        [HttpPost]
-        public async Task<IActionResult> Upsert(
-            [FromBody] ClientAddressDto dto,
-            [FromQuery] DateTime? oldStart,
-            [FromQuery] DateTime? oldEnd,
-            CancellationToken ct)
+        public sealed class AddressUpsertRequest
         {
-            // ตรวจ overlap ฝั่ง DB ควรถูกทำใน service/repo อื่น ๆ แล้ว
-            await _repo.UpsertAsync(dto, oldStart, oldEnd, ct);
-            return Ok(new { ok = true });
-        }
+            public int ClientId { get; set; }
+            public int AddressType { get; set; }
+            public DateTime StartDate { get; set; }
+            public DateTime? EndDate { get; set; }
+            public DateTime? OldStart { get; set; }
+            public DateTime? OldEnd { get; set; }
 
-        /// <summary>
-        /// DELETE: /api/addresses?clientId=100000&addressType=1&start=2024-01-01&end=2024-12-31
-        /// </summary>
-        [HttpDelete]
-        public async Task<IActionResult> Delete(
-            [FromQuery] int clientId,
-            [FromQuery] int addressType,
-            [FromQuery] DateTime start,
-            [FromQuery] DateTime end,
-            CancellationToken ct)
-        {
-            var ok = await _repo.DeleteAsync(clientId, addressType, start, end, ct);
-            return Ok(new { ok });
+            public string? AddressTitle { get; set; }
+            public string? AddressName { get; set; }
+            public string? Address01 { get; set; }
+            public string? Address02 { get; set; }
+            public string? Address03 { get; set; }
+            public string? Address04 { get; set; }
         }
     }
 }

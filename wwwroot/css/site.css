@@ -144,7 +144,7 @@ main.container {
 }
 
 .client-grid th:nth-child(2), .client-grid td:nth-child(2) {
-    width: 110px; /* >>> ตามที่ร้องขอ: Description = 110px <<< */
+    width: 400px; /* >>> ตามที่ร้องขอ: Description = 110px <<< */
     max-width: 110px;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -152,7 +152,7 @@ main.container {
 }
 
 .client-grid th:nth-child(3), .client-grid td:nth-child(3) {
-    width: 110px;
+    width: 100px;
     text-align: center;
 }
 
@@ -244,3 +244,29 @@ main.container {
    - .client-grid (ตาราง)
    - .actions-nowrap / .btn-fixed / .btn-edit
    ======================================================= */
+/* --- Client Address table helpers --- */
+.table-fixed {
+    table-layout: fixed;
+}
+
+.addr-col {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    line-height: 1.15;
+}
+
+.nowrap {
+    white-space: nowrap;
+}
+
+.w-type {
+    width: 80px;
+}
+
+.w-date {
+    width: 120px;
+}
+
+.w-actions {
+    width: 200px;
+}

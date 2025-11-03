@@ -1,0 +1,90 @@
+﻿@using System
+@using System.Linq
+@using System.Collections.Generic
+@using Ams.Media.Web.Dto
+@model IEnumerable<ClientAddressDto>
+
+@{
+    long clientIdLong = 0;
+    if (ViewBag.Client is ClientRow cr) clientIdLong = cr.ClientId;
+    else if (Model?.Any() == true) clientIdLong = Model.First().ClientId;
+    var clientId = (int)clientIdLong;
+
+    var addressTypes = (IEnumerable<SetupTypeDto>?)ViewBag.AddressTypes ?? Enumerable.Empty<SetupTypeDto>();
+    var typeName = new Func<int, string>(t =>
+    {
+        foreach (var x in addressTypes) if (x.SetupTypeCode == t) return x.SetupTypeName ?? t.ToString();
+        return t.ToString();
+    });
+}
+
+<div class="card shadow-sm mb-3">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Address List</span>
+        <button class="btn btn-primary btn-sm" data-bs-toggle="collapse" data-bs-target="#addrNewForm">New</button>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0" style="table-layout:fixed;">
+            <colgroup>
+                <col style="width:140px;" />
+                <col />
+                <col style="width:120px;" />
+                <col style="width:120px;" />
+                <col style="width:240px;" />
+            </colgroup>
+            <thead>
+                <tr>
+                    <th>Type</th>
+                    <th>Address</th>
+                    <th>Start</th>
+                    <th>End</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (Model?.Any() == true)
+                {
+                    foreach (var a in Model.OrderBy(x => x.AddressType).ThenBy(x => x.StartDate))
+                    {
+                        var addrText = string.Join(" ", new[] { a.AddressTitle, a.AddressName, a.Address01, a.Address02, a.Address03, a.Address04 }
+                        .Where(s => !string.IsNullOrWhiteSpace(s)));
+
+                        <tr>
+                            <td>@typeName(a.AddressType) (@a.AddressType)</td>
+                            <td class="text-wrap" style="white-space:pre-wrap;">
+                                @(string.IsNullOrWhiteSpace(addrText) ? "(no address text)" : addrText)
+                            </td>
+                            <td>@a.StartDate.ToString("dd/MM/yyyy")</td>
+                            <td>@(a.EndDate is DateTime ed ? ed.ToString("dd/MM/yyyy") : "")</td>
+                            <td class="text-end">
+                                <a class="btn btn-outline-secondary btn-sm me-1"
+                                   asp-controller="Client"
+                                   asp-action="AddressEdit"
+                                   asp-route-clientId="@clientId"
+                                   asp-route-type="@a.AddressType"
+                                   asp-route-start="@a.StartDate.ToString("yyyy-MM-dd")">
+                                    Edit
+                                </a>
+                                <a class="btn btn-outline-danger btn-sm"
+                                   asp-controller="Client"
+                                   asp-action="AddressDelete"
+                                   asp-route-clientId="@clientId"
+                                   asp-route-type="@a.AddressType"
+                                   asp-route-start="@a.StartDate.ToString("yyyy-MM-dd")"
+                                   asp-route-end="@(a.EndDate is DateTime e2 ? e2.ToString("yyyy-MM-dd") : null)"
+                                   onclick="return confirm('Delete this address?');">
+                                    Delete
+                                </a>
+                            </td>
+                        </tr>
+                    }
+                }
+                else
+                {
+                    <tr><td colspan="5" class="text-center text-muted">No address.</td></tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

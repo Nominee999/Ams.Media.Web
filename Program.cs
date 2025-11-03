@@ -1,68 +1,56 @@
-﻿// Program.cs — AMS Media (NET 8)
-
+﻿// Program.cs
+using Ams.Media.Web.Data;
+using Ams.Media.Web.Repositories;
+using Ams.Media.Web.Repositories.Interfaces;
+using Ams.Media.Web.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ================= MVC =================
-builder.Services.AddControllersWithViews();
-builder.Services.AddHttpContextAccessor();
-
-// ================= DbContext =================
-var connStr =
-    builder.Configuration.GetConnectionString("AmsDb")
-    ?? builder.Configuration.GetConnectionString("Default")
-    ?? "";
-
-builder.Services.AddDbContext<Ams.Media.Web.Data.AmsDbContext>(opt =>
+// Db (สำหรับบางส่วนที่อาจใช้ EF)
+builder.Services.AddDbContext<AmsDbContext>(opt =>
 {
-    opt.UseSqlServer(connStr);
+    var cs = builder.Configuration.GetConnectionString("AmsDb")
+          ?? builder.Configuration.GetConnectionString("Default");
+    if (!string.IsNullOrWhiteSpace(cs))
+        opt.UseSqlServer(cs);
 });
 
-// ================= Dependency Injection =================
-// NOTE: ใช้ namespace เดียวกับที่ใช้อยู่จริงในโปรเจกต์ตอนนี้
-builder.Services.AddScoped<
-    Ams.Media.Web.Repositories.IClientRepository,
-    Ams.Media.Web.Repositories.ClientRepository>();
+// MVC / Razor
+builder.Services.AddControllersWithViews();
 
-builder.Services.AddScoped<
-    Ams.Media.Web.Services.IClientService,
-    Ams.Media.Web.Services.ClientService>();
-
-builder.Services.AddScoped<
-    Ams.Media.Web.Services.IAuthService,
-    Ams.Media.Web.Services.AuthService>();
-
-builder.Services.AddScoped<
-    Ams.Media.Web.Services.IMenuGate,
-    Ams.Media.Web.Services.MenuGate>();
-
-// ================= Authentication (Cookie) =================
+// Auth (Cookie)
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
-    .AddCookie(o =>
+    .AddCookie(opt =>
     {
-        o.LoginPath = "/Account/Login";
-        o.AccessDeniedPath = "/Denied";
-        o.Cookie.Name = "Ams.Media.Auth";
+        opt.LoginPath = "/Account/Login";
+        opt.LogoutPath = "/Account/Logout";
+        opt.Cookie.Name = "Ams.Media.Auth";
     });
 
-// ================= Build app =================
+builder.Services.AddAntiforgery();
+
+// DI: Repositories / Services (ตามที่ใช้งานจริง)
+builder.Services.AddScoped<IClientAddressRepository, ClientAddressRepository>();
+builder.Services.AddScoped<IClientService, ClientService>();
+
 var app = builder.Build();
 
-// ================= Pipeline =================
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Home/Error");
-    // app.UseHsts();
+    app.UseHsts();
 }
 
+app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
 
-// ================= Routes =================
+app.MapControllers();
+
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}");

@@ -1,51 +1,99 @@
-﻿@{
+﻿@using Ams.Media.Web.Dto
+@model PagedResult<ClientGridRow>
+@{
     ViewData["Title"] = "Client Master";
+    var q = (string?)ViewBag.Query ?? "";
+    var show = (string?)ViewBag.Show ?? "A";
+    var pageSize = (int)(ViewBag.PageSize ?? 50);
+    var gridUrl = Url.Action("Grid", "Client");
+
+    // ค่าที่ส่งมาจาก Controller (รองรับ /Client/New และ /Client/Edit/{id} ที่รีไดเรกต์มาหน้านี้)
+    var mode = (string?)(ViewBag.Mode ?? "");
+    var editId = (int?)ViewBag.EditId;
 }
 
-<section class="card bg-body border-0 shadow-sm">
-    <div class="card-body">
-        <div class="d-flex align-items-center justify-content-between">
-            <h5 class="card-title mb-0">Client Master</h5>
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0">Client Master</h4>
+    <form id="searchForm" class="d-flex gap-2" hx-get="@gridUrl" hx-target="#grid1" hx-swap="innerHTML">
+        <input type="text" name="q" value="@q" class="form-control form-control-sm" placeholder="Search code/name/prefix/tax" />
+        <select name="show" class="form-select form-select-sm">
+            <option value="A" selected="@(show == "A" ? "selected" : null)">All</option>
+            <option value="C" selected="@(show == "C" ? "selected" : null)">Hide Not Use</option>
+        </select>
+        <input type="hidden" name="page" value="1" />
+        <input type="hidden" name="pageSize" value="@pageSize" />
+        <button class="btn btn-primary btn-sm" type="submit">Search</button>
+        <a class="btn btn-success btn-sm" asp-controller="Client" asp-action="New" id="btnNew">+ New</a>
+    </form>
+</div>
 
-            <!-- ปุ่ม A/C ย้ายไป Navbar แล้ว ตามที่ทำไว้ -->
-        </div>
+<div id="grid1"
+     hx-get="@gridUrl?q=@q&show=@show&page=1&pageSize=@pageSize"
+     hx-trigger="load"
+     hx-target="#grid1"
+     hx-swap="innerHTML">
+    @* เผื่อ no-js แสดงกริดรอบแรกจาก Model *@
+    @await Html.PartialAsync("_Grid", Model)
+</div>
 
-
-
-        <div id="Loading" class="small text-muted mt-2" style="display:none;">กำลังโหลด...</div>
-
-        <div id="Grid"
-             class="mt-3"
-             hx-get="/Client/Grid"
-             hx-trigger="load"
-             hx-indicator="#Loading">
-            <div class="small text-muted">กำลังโหลด...</div>
+@* ===== Modal Zone (Bootstrap) ===== *@
+<div class="modal fade" id="clientModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="clientModalLabel">Client</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="clientModalBody">
+                <div class="text-center py-4">Loading...</div>
+            </div>
         </div>
     </div>
-</section>
+</div>
 
 @section Scripts {
     <script>
-        // กด Enter ในช่องค้นหา = กดปุ่ม Search
-        document.getElementById('q').addEventListener('keydown', function (e) {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                document.getElementById('btnSearch').click();
-            }
-        });
+        // ฟังก์ชันเปิดโมดัล + โหลดพาร์เชียลด้วย HTMX
+        function openClientNew() {
+            var modalEl = document.getElementById('clientModal');
+            var modal = new bootstrap.Modal(modalEl);
+            document.getElementById('clientModalLabel').innerText = 'New Client';
 
-        // แสดง/ซ่อนตัวชี้โหลด ในกรณีไม่ได้ใช้ hx-indicator
-        document.body.addEventListener('htmx:beforeRequest', () => {
-            const el = document.querySelector('#Loading');
-            if (el) el.style.display = '';
-        });
-        document.body.addEventListener('htmx:afterOnLoad', () => {
-            const el = document.querySelector('#Loading');
-            if (el) el.style.display = 'none';
-        });
-        document.body.addEventListener('htmx:responseError', (evt) => {
-            const el = document.querySelector('#Loading');
-            if (el) el.textContent = `Error ${evt.detail.xhr.status}: ${evt.detail.xhr.statusText}`;
-        });
+            // NOTE: เปลี่ยน URL ด้านล่างให้ตรงกับ action พาร์เชียลฟอร์มของคุณ
+            // แนะนำทำ action ชื่อ NewForm ที่ return PartialView("_ClientForm", vm)
+            htmx.ajax('GET', '/Client/NewForm', { target: '#clientModalBody', swap: 'innerHTML' })
+                .then(function () { modal.show(); })
+                .catch(function () {
+                    document.getElementById('clientModalBody').innerHTML = '<div class="text-danger">Failed to load form.</div>';
+                    modal.show();
+                });
+        }
+
+        function openClientEdit(id) {
+            var modalEl = document.getElementById('clientModal');
+            var modal = new bootstrap.Modal(modalEl);
+            document.getElementById('clientModalLabel').innerText = 'Edit Client #' + id;
+
+            // NOTE: เปลี่ยน URL ด้านล่างให้ตรงกับ action พาร์เชียลฟอร์มของคุณ
+            // แนะนำทำ action ชื่อ EditForm ที่รับ id แล้ว return PartialView("_ClientForm", vm)
+            htmx.ajax('GET', '/Client/EditForm?id=' + encodeURIComponent(id), { target: '#clientModalBody', swap: 'innerHTML' })
+                .then(function () { modal.show(); })
+                .catch(function () {
+                    document.getElementById('clientModalBody').innerHTML = '<div class="text-danger">Failed to load form.</div>';
+                    modal.show();
+                });
+        }
+
+        // เปิดโมดัลอัตโนมัติเมื่อมาจาก /Client/New หรือ /Client/Edit/{id}
+        (function () {
+            var mode = '@(mode ?? "")';
+            var editIdText = '@(editId?.ToString() ?? "")';
+
+            if (mode === 'new') {
+                openClientNew();
+            } else if (editIdText.length > 0) {
+                openClientEdit(editIdText);
+            }
+        })();
     </script>
 }

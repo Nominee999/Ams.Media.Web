@@ -1,7 +1,11 @@
-﻿using System.Data;
+﻿// Repositories/ClientAddressRepository.cs
+using System;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using Dapper;
 using Microsoft.Data.SqlClient;
-using Ams.Media.Web.Data;
+using Microsoft.Extensions.Configuration;
 using Ams.Media.Web.Dto;
 using Ams.Media.Web.Repositories.Interfaces;
 
@@ -9,106 +13,180 @@ namespace Ams.Media.Web.Repositories
 {
     public sealed class ClientAddressRepository : IClientAddressRepository
     {
-        private readonly DbConnectionFactory _db;
-        public ClientAddressRepository(DbConnectionFactory db) => _db = db;
+        private readonly string _connStr;
 
-        public async Task<IReadOnlyList<ClientAddressDto>> ListAsync(int clientId, int? type, CancellationToken ct)
+        public ClientAddressRepository(IConfiguration cfg)
         {
-            using var con = await _db.OpenAsync(ct);
-            const string sql = @"
-SELECT  ClientID      AS ClientId,
-        AddressType,
-        StartDate,
-        EndDate,
-        CompanyName,
-        AddressName,
-        AddressTitle,
-        MultiAddress01,
-        MultiAddress02,
-        MultiAddress03,
-        MultiAddress04,
-        MultiAreaCode,
-        ZipCode,
-        MultiStateCode,
-        MultiCountry,
-        MultiComments
-FROM dbo.Address WITH (NOLOCK)
-WHERE ClientCode = @clientId
-  AND (@type IS NULL OR AddressType = @type)
-ORDER BY AddressType, StartDate;";
-            var rows = await con.QueryAsync<ClientAddressDto>(sql, new { clientId, type }, commandType: CommandType.Text);
-            return rows.ToList();
+            _connStr = cfg.GetConnectionString("AmsDb")
+                       ?? cfg.GetConnectionString("Default")
+                       ?? "";
         }
 
-        public async Task<bool> ExistsOverlapAsync(int clientId, int addressType, DateTime start, DateTime end,
-                                                   DateTime? excludeStart, DateTime? excludeEnd, CancellationToken ct)
+        public async Task<IReadOnlyList<ClientAddressDto>> ListAsync(int clientId, int? addressType, CancellationToken ct)
         {
-            using var con = await _db.OpenAsync(ct);
             const string sql = @"
-SELECT COUNT(1)
+SELECT
+    ClientID     AS ClientId,
+    AddressType,
+    StartDate,
+    EndDate,
+    AddressTitle,
+    Address01,
+    Address02,
+    Address03,
+    Address04,
+    AddressTitle AS AddressName
 FROM dbo.Address WITH (NOLOCK)
-WHERE ClientCode = @clientId
+WHERE ClientID = @clientId
+  AND (@addressType IS NULL OR AddressType = @addressType)
+ORDER BY AddressType, StartDate;";
+
+            await using var conn = new SqlConnection(_connStr);
+            var rows = await conn.QueryAsync<ClientAddressDto>(
+                new CommandDefinition(sql, new { clientId, addressType }, cancellationToken: ct));
+            return rows.AsList();
+        }
+
+        public async Task<ClientAddressDto?> GetAsync(int clientId, int addressType, DateTime start, DateTime? end, CancellationToken ct)
+        {
+            const string sql = @"
+SELECT
+    ClientID     AS ClientId,
+    AddressType,
+    StartDate,
+    EndDate,
+    AddressTitle,
+    Address01,
+    Address02,
+    Address03,
+    Address04,
+    AddressTitle AS AddressName
+FROM dbo.Address WITH (NOLOCK)
+WHERE ClientID    = @clientId
   AND AddressType = @addressType
-  AND NOT (EndDate < @start OR StartDate > @end)
-  AND NOT (@excludeStart IS NOT NULL AND @excludeEnd IS NOT NULL
-           AND StartDate = @excludeStart AND EndDate = @excludeEnd);";
-            var n = await con.ExecuteScalarAsync<int>(sql, new
-            {
-                clientId,
-                addressType,
-                start,
-                end,
-                excludeStart,
-                excludeEnd
-            });
+  AND StartDate   = @start;";
+
+            await using var conn = new SqlConnection(_connStr);
+            return await conn.QueryFirstOrDefaultAsync<ClientAddressDto>(
+                new CommandDefinition(sql, new { clientId, addressType, start }, cancellationToken: ct));
+        }
+
+        public async Task<bool> IsOverlapAsync(
+            int clientId,
+            int addressType,
+            DateTime start,
+            DateTime? end,
+            (int clientId, int addressType, DateTime startDate)? oldKey,
+            CancellationToken ct)
+        {
+            // ใช้ช่วง [StartDate..EndDate] แบบ inclusive; ถ้า EndDate null ให้ใช้ 9999-12-31
+            var newEnd = end ?? new DateTime(9999, 12, 31);
+
+            const string sql = @"
+SELECT TOP 1 1
+FROM dbo.Address WITH (NOLOCK)
+WHERE ClientID    = @clientId
+  AND AddressType = @addressType
+  AND NOT ( @newEnd < StartDate OR @newStart > EndDate )
+  AND NOT (
+        @oldStart IS NOT NULL
+        AND ClientID    = @oldClient
+        AND AddressType = @oldType
+        AND StartDate   = @oldStart
+  );";
+
+            await using var conn = new SqlConnection(_connStr);
+            var exists = await conn.ExecuteScalarAsync<int?>(
+                new CommandDefinition(
+                    sql,
+                    new
+                    {
+                        clientId,
+                        addressType,
+                        newStart = start,
+                        newEnd,
+                        oldStart = oldKey?.startDate,
+                        oldType = oldKey?.addressType,
+                        oldClient = oldKey?.clientId
+                    },
+                    cancellationToken: ct));
+
+            return exists.HasValue;
+        }
+
+        public async Task<bool> CreateAsync(ClientAddressDto dto, CancellationToken ct)
+        {
+            // กันซ้อนช่วงวัน
+            var overlap = await IsOverlapAsync(dto.ClientId, dto.AddressType, dto.StartDate, dto.EndDate, null, ct);
+            if (overlap) return false;
+
+            const string sql = @"
+INSERT INTO dbo.Address
+( ClientID, AddressType, StartDate, EndDate, AddressTitle, Address01, Address02, Address03, Address04 )
+VALUES
+( @ClientId, @AddressType, @StartDate, @EndDate, @AddressTitle, @Address01, @Address02, @Address03, @Address04 );";
+
+            await using var conn = new SqlConnection(_connStr);
+            var n = await conn.ExecuteAsync(new CommandDefinition(sql, dto, cancellationToken: ct));
             return n > 0;
         }
 
-        public async Task UpsertAsync(ClientAddressDto dto, DateTime? oldStart, DateTime? oldEnd, CancellationToken ct)
+        public async Task<bool> UpdateAsync(int clientId, int addressType, DateTime oldStart, ClientAddressDto dto, CancellationToken ct)
         {
-            using var con = await _db.OpenAsync(ct);
-            using var tx = con.BeginTransaction();
+            // กันซ้อนช่วงวัน (ยกเว้นตนเอง)
+            var overlap = await IsOverlapAsync(clientId, addressType, dto.StartDate, dto.EndDate,
+                                               (clientId, addressType, oldStart), ct);
+            if (overlap) return false;
 
-            // ถ้ามี oldStart/oldEnd แปลว่า update → ลบแถวเดิมก่อน
-            if (oldStart.HasValue && oldEnd.HasValue)
+            const string sql = @"
+UPDATE dbo.Address
+SET
+    StartDate    = @StartDate,
+    EndDate      = @EndDate,
+    AddressTitle = @AddressTitle,
+    Address01    = @Address01,
+    Address02    = @Address02,
+    Address03    = @Address03,
+    Address04    = @Address04
+WHERE ClientID    = @clientId
+  AND AddressType = @addressType
+  AND StartDate   = @oldStart;";
+
+            await using var conn = new SqlConnection(_connStr);
+            var n = await conn.ExecuteAsync(new CommandDefinition(sql, new
             {
-                const string del = @"
-DELETE FROM dbo.Address
-WHERE ClientCode = @clientId AND AddressType = @addressType
-  AND StartDate = @oldStart AND EndDate = @oldEnd;";
-                await con.ExecuteAsync(del, new
-                {
-                    clientId = dto.ClientId,
-                    addressType = dto.AddressType,
-                    oldStart,
-                    oldEnd
-                }, tx);
-            }
-
-            const string ins = @"
-INSERT INTO dbo.Address(
-    ClientCode, AddressType, StartDate, EndDate,
-    CompanyName, AddressName, AddressTitle,
-    MultiAddress01, MultiAddress02, MultiAddress03, MultiAddress04,
-    MultiAreaCode, ZipCode, MultiStateCode, MultiCountry, MultiComments)
-VALUES(
-    @ClientId, @AddressType, @StartDate, @EndDate,
-    @CompanyName, @AddressName, @AddressTitle,
-    @MultiAddress01, @MultiAddress02, @MultiAddress03, @MultiAddress04,
-    @MultiAreaCode, @ZipCode, @MultiStateCode, @MultiCountry, @MultiComments);";
-
-            await con.ExecuteAsync(ins, dto, tx);
-            tx.Commit();
+                clientId,
+                addressType,
+                oldStart,
+                dto.StartDate,
+                dto.EndDate,
+                dto.AddressTitle,
+                dto.Address01,
+                dto.Address02,
+                dto.Address03,
+                dto.Address04
+            }, cancellationToken: ct));
+            return n > 0;
         }
 
-        public async Task<bool> DeleteAsync(int clientId, int addressType, DateTime start, DateTime end, CancellationToken ct)
+        public async Task<bool> DeleteAsync(int clientId, int addressType, DateTime start, DateTime? end, CancellationToken ct)
         {
-            using var con = await _db.OpenAsync(ct);
-            var rows = await con.ExecuteAsync(@"
+            const string sql = @"
 DELETE FROM dbo.Address
-WHERE ClientCode=@clientId AND AddressType=@addressType AND StartDate=@start AND EndDate=@end;",
-                new { clientId, addressType, start, end });
-            return rows > 0;
+WHERE ClientID    = @clientId
+  AND AddressType = @addressType
+  AND StartDate   = @start;";
+
+            await using var conn = new SqlConnection(_connStr);
+            var n = await conn.ExecuteAsync(new CommandDefinition(sql, new { clientId, addressType, start }, cancellationToken: ct));
+            return n > 0;
+        }
+
+        public async Task<bool> UpsertAsync(ClientAddressDto dto, DateTime? oldStart, DateTime? oldEnd, CancellationToken ct)
+        {
+            if (oldStart.HasValue)
+                return await UpdateAsync(dto.ClientId, dto.AddressType, oldStart.Value, dto, ct);
+            return await CreateAsync(dto, ct);
         }
     }
 }

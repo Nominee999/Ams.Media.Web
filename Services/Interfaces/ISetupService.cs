@@ -1,9 +1,13 @@
-// D:\VS2022\Ams.Media.Web\Services\Interfaces\ISetupService.cs
-using Ams.Media.Web.Dto;
+﻿using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Mvc.Rendering;
 
-namespace Ams.Media.Web.Services.Interfaces;
-
-public interface ISetupService
+namespace Ams.Media.Web.Services
 {
-    Task<IReadOnlyList<SetupTypeDto>> GetAddressTypesAsync(CancellationToken ct);
+    public interface ISetupService
+    {
+        Task<IReadOnlyList<SelectListItem>> GetOptionsAsync(string setupTypeKey, CancellationToken ct);
+        Task<IReadOnlyList<SelectListItem>> GetAddressTypesAsync(CancellationToken ct);
+    }
 }

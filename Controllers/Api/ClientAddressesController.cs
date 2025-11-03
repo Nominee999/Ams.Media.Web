@@ -1,20 +1,17 @@
-﻿// D:\VS2022\Ams.Media.Web\Controllers\Api\ClientAddressesController.cs
-
-using System;
+﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-
 using Ams.Media.Web.Dto;
-// ✅ ใช้ IClientService จาก namespace ที่ลงทะเบียน DI จริง
 using Ams.Media.Web.Services;
-
 
 namespace Ams.Media.Web.Controllers.Api
 {
+    [Authorize]
+    [Route("api/[controller]")]
     [ApiController]
-    [Route("api/clients/{clientId:int}/addresses")]
-    public class ClientAddressesController : ControllerBase
+    public sealed class ClientAddressesController : ControllerBase
     {
         private readonly IClientService _svc;
 
@@ -23,107 +20,67 @@ namespace Ams.Media.Web.Controllers.Api
             _svc = svc;
         }
 
-        // GET: api/clients/{clientId}/addresses?type=10
-        [HttpGet]
-        public async Task<IActionResult> List(int clientId, [FromQuery] int? type, CancellationToken ct)
+        // GET api/ClientAddresses/list?clientId=100000&type=1
+        [HttpGet("list")]
+        public async Task<IActionResult> List(int clientId, int? type, CancellationToken ct)
         {
-            var list = await _svc.AddressListAsync(clientId, type, ct);
-            return Ok(list);
+            var rows = await _svc.AddressListAsync(clientId, type, ct);
+            return Ok(rows);
         }
 
-        // GET: api/clients/{clientId}/addresses/{addressType}?start=2025-01-01&end=2025-12-31
-        [HttpGet("{addressType:int}")]
-        public async Task<IActionResult> Get(
-            int clientId,
-            int addressType,
-            [FromQuery] DateTime start,
-            [FromQuery] DateTime? end,
-            CancellationToken ct)
+        // GET api/ClientAddresses/get?clientId=100000&type=1&start=2025-10-15
+        [HttpGet("get")]
+        public async Task<IActionResult> Get(int clientId, int type, DateTime start, DateTime? end, CancellationToken ct)
         {
-            var dto = await _svc.AddressGetAsync(clientId, addressType, start, end, ct);
-            if (dto is null) return NotFound();
+            var dto = await _svc.AddressGetAsync(clientId, type, start, end, ct);
+            if (dto == null) return NotFound();
+
+            // ถ้าตัวเรียกเดิมคาดว่าเป็นลิสต์ ให้ห่อเป็นลิสต์สั้น ๆ
+            // var list = new[] { dto };
+            // return Ok(list);
+
             return Ok(dto);
         }
 
-        // POST: api/clients/{clientId}/addresses/validate
-        // body: ClientAddressDto
+        // POST api/ClientAddresses/validate
         [HttpPost("validate")]
-        public async Task<IActionResult> ValidateCreate(
-            int clientId,
-            [FromBody] ClientAddressDto dto,
-            CancellationToken ct)
+        public async Task<IActionResult> Validate([FromBody] ClientAddressDto input,
+            int? oldClientId, int? oldType, DateTime? oldStart, CancellationToken ct)
         {
-            // ยืนยัน clientId ให้ตรง
-            dto.ClientId = clientId;
+            var oldKey = (oldClientId.HasValue && oldType.HasValue && oldStart.HasValue)
+                ? (oldClientId.Value, oldType.Value, oldStart.Value)
+                : ((int clientId, int addressType, DateTime startDate)?)null;
 
-            // ⚠️ ใส่ type ชัดเจนใน deconstruction ตัดปัญหา Cannot infer…
-            (bool ok, string? message, System.Collections.Generic.IReadOnlyList<ClientAddressDto> conflicts)
-                = await _svc.AddressValidateAsync(dto, oldKey: null, ct);
-
-            return Ok(new { ok, message, conflicts });
+            var (ok, message, echo) = await _svc.AddressValidateAsync(input, oldKey, ct);
+            if (!ok) return BadRequest(new { message, echo });
+            return Ok(echo);
         }
 
-        // POST: api/clients/{clientId}/addresses
-        // body: ClientAddressDto
-        [HttpPost]
-        public async Task<IActionResult> Create(
-            int clientId,
-            [FromBody] ClientAddressDto dto,
-            CancellationToken ct)
+        // POST api/ClientAddresses/save  (create/update อัตโนมัติ)
+        [HttpPost("save")]
+        public async Task<IActionResult> Save([FromBody] ClientAddressDto input,
+            int? oldClientId, int? oldType, DateTime? oldStart, CancellationToken ct)
         {
-            dto.ClientId = clientId;
+            var oldKey = (oldClientId.HasValue && oldType.HasValue && oldStart.HasValue)
+                ? (oldClientId.Value, oldType.Value, oldStart.Value)
+                : ((int clientId, int addressType, DateTime startDate)?)null;
 
-            (bool ok, string? message, System.Collections.Generic.IReadOnlyList<ClientAddressDto> conflicts)
-                = await _svc.AddressValidateAsync(dto, oldKey: null, ct);
+            var (ok, message, _) = await _svc.AddressValidateAsync(input, oldKey, ct);
+            if (!ok) return BadRequest(new { message });
 
-            if (!ok)
-            {
-                return BadRequest(new { ok, message, conflicts });
-            }
+            bool saved = oldKey is null
+                ? await _svc.AddressCreateAsync(input, ct)
+                : await _svc.AddressUpdateAsync(oldKey.Value.clientId, oldKey.Value.addressType, oldKey.Value.startDate, input, ct);
 
-            var saved = await _svc.AddressCreateAsync(dto, ct);
-            return saved ? Ok(new { ok = true }) : StatusCode(500, new { ok = false, message = "Create failed." });
+            return saved ? Ok() : StatusCode(500, new { message = "Save failed" });
         }
 
-        // PUT: api/clients/{clientId}/addresses/{addressType}?start=...
-        // body: ClientAddressDto
-        [HttpPut("{addressType:int}")]
-        public async Task<IActionResult> Update(
-            int clientId,
-            int addressType,
-            [FromQuery] DateTime start,
-            [FromBody] ClientAddressDto dto,
-            CancellationToken ct)
+        // DELETE api/ClientAddresses/delete?clientId=100000&type=1&start=2025-10-15
+        [HttpDelete("delete")]
+        public async Task<IActionResult> Delete(int clientId, int type, DateTime start, DateTime? end, CancellationToken ct)
         {
-            dto.ClientId = clientId;
-            dto.AddressType = addressType;
-
-            // oldKey = คีย์เดิมสำหรับตรวจ conflict
-            var oldKey = (clientId: clientId, addressType: addressType, startDate: start);
-
-            (bool ok, string? message, System.Collections.Generic.IReadOnlyList<ClientAddressDto> conflicts)
-                = await _svc.AddressValidateAsync(dto, oldKey, ct);
-
-            if (!ok)
-            {
-                return BadRequest(new { ok, message, conflicts });
-            }
-
-            var done = await _svc.AddressUpdateAsync(clientId, addressType, start, dto, ct);
-            return done ? Ok(new { ok = true }) : StatusCode(500, new { ok = false, message = "Update failed." });
-        }
-
-        // DELETE: api/clients/{clientId}/addresses/{addressType}?start=...&end=...
-        [HttpDelete("{addressType:int}")]
-        public async Task<IActionResult> Delete(
-            int clientId,
-            int addressType,
-            [FromQuery] DateTime start,
-            [FromQuery] DateTime? end,
-            CancellationToken ct)
-        {
-            var done = await _svc.AddressDeleteAsync(clientId, addressType, start, end, ct);
-            return done ? Ok(new { ok = true }) : StatusCode(500, new { ok = false, message = "Delete failed." });
+            var ok = await _svc.AddressDeleteAsync(clientId, type, start, end, ct);
+            return ok ? Ok() : StatusCode(500, new { message = "Delete failed" });
         }
     }
 }

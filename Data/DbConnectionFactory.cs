@@ -1,43 +1,39 @@
 ﻿using System.Data;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Data.SqlClient;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Data.SqlClient;
 
 namespace Ams.Media.Web.Data
 {
-    public sealed class DbConnectionFactory
+    /// <summary>
+    /// Implement ตาม IDbConnectionFactory เดียวของโปรเจกต์
+    /// </summary>
+    public sealed class DbConnectionFactory : IDbConnectionFactory
     {
-        private readonly string _connString;
-
-        // ใช้จาก DI
-        public DbConnectionFactory(IConfiguration config)
-        {
-            _connString = config.GetConnectionString("AmsDb")!;
-        }
-
-        // ใช้ new ด้วย string โดยตรง
+        private readonly string _connectionString;
         public DbConnectionFactory(string connectionString)
         {
-            _connString = connectionString;
+            _connectionString = connectionString ?? "";
         }
 
-        public IDbConnection Create() => new SqlConnection(_connString);
 
-        // เดิมไม่มี ct → คงไว้
-        public async Task<IDbConnection> OpenAsync()
+        public Task<IDbConnection> CreateAsync(CancellationToken ct)
+            => Task.FromResult<IDbConnection>(new SqlConnection(_connectionString));
+
+        public async Task<IDbConnection> OpenAsync(CancellationToken ct = default)
         {
-            var conn = new SqlConnection(_connString);
-            await conn.OpenAsync().ConfigureAwait(false);
+            var conn = new SqlConnection(_connectionString);
+            await conn.OpenAsync(ct);
             return conn;
         }
 
-        // เพิ่ม overload รองรับ CancellationToken (ให้โค้ดที่เรียก OpenAsync(ct) คอมไพล์ได้)
-        public async Task<IDbConnection> OpenAsync(CancellationToken ct)
+        public IDbConnection Create()
         {
-            var conn = new SqlConnection(_connString);
-            await conn.OpenAsync(ct).ConfigureAwait(false);
-            return conn;
+            var cn = new SqlConnection(_connectionString);
+            // ไม่ open ที่นี่ ปล่อยให้ Dapper เปิดเองตามการใช้งาน
+            return cn;
         }
     }
+
 }
+

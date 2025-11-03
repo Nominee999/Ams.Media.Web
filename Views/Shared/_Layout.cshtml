@@ -3,7 +3,9 @@
 @inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
 @inject Ams.Media.Web.Services.IMenuGate Gate
 @inject Microsoft.Extensions.Configuration.IConfiguration Configuration
+
 @{
+    // เก็บ Anti-forgery token ลง meta
     var tokens = Antiforgery.GetAndStoreTokens(Context);
     var title = ViewData["Title"] as string ?? "AMS Media";
     var uname = User?.Identity?.Name ?? "";
@@ -18,7 +20,6 @@
     var acMode = (Configuration?["ShowData"] ?? "C").Trim().ToUpperInvariant();
     if (acMode != "A" && acMode != "C") acMode = "C";
 
-    // Theme จาก cookie > config
     var themeDefault = (Configuration?["Ui:ThemeDefault"] ?? "dark").Trim().ToLowerInvariant();
     if (themeDefault != "dark" && themeDefault != "light") themeDefault = "dark";
     var themeCookie = Context.Request.Cookies.TryGetValue("Theme", out var tc) ? tc : null;

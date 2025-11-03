@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+
+  <data name="Client Master"><value>Client Master</value></data>
+  <data name="Search code/name/prefix/tax"><value>ค้นหา โค้ด/ชื่อ/คำนำหน้า/ภาษี</value></data>
+  <data name="Search"><value>ค้นหา</value></data>
+  <data name="+ New"><value>+ เพิ่มใหม่</value></data>
+  <data name="Total"><value>ทั้งหมด</value></data>
+  <data name="Clean"><value>ซ่อนที่เลิกใช้</value></data>
+  <data name="All"><value>แสดงทั้งหมด</value></data>
+  <data name="Client Name"><value>ชื่อลูกค้า</value></data>
+  <data name="Actions"><value>การทำงาน</value></data>
+  <data name="Prev"><value>ก่อนหน้า</value></data>
+  <data name="Next"><value>ถัดไป</value></data>
+  <data name="Address"><value>ที่อยู่</value></data>
+  <data name="Edit"><value>แก้ไข</value></data>
+  <data name="Delete"><value>ลบ</value></data>
+  <data name="Cannot Delete — In Use"><value>ไม่สามารถลบได้ — มีการใช้งานอยู่</value></data>
+  <data name="Close"><value>ปิด</value></data>
+  <data name="This client is referenced and cannot be deleted."><value>ลูกค้าถูกอ้างอิงอยู่ จึงไม่สามารถลบได้</value></data>
+  <data name="Table"><value>ตาราง</value></data>
+  <data name="Count"><value>จำนวน</value></data>
+</root>

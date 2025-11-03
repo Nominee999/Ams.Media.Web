@@ -1,9 +1,11 @@
-// D:\VS2022\Ams.Media.Web\Repositories\Interfaces\ISetupRepository.cs
-using Ams.Media.Web.Dto;
+﻿using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 
-namespace Ams.Media.Web.Repositories.Interfaces;
-
-public interface ISetupRepository
+namespace Ams.Media.Web.Repositories.Interfaces
 {
-    Task<IReadOnlyList<SetupTypeDto>> GetAddressTypesAsync(CancellationToken ct);
+    public interface ISetupRepository
+    {
+        Task<IReadOnlyList<(string Value, string Text, int Sort)>> GetOptionsAsync(string setupTypeKey, CancellationToken ct);
+    }
 }

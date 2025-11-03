@@ -1,0 +1,208 @@
+﻿@using System
+@using System.Linq
+@using System.Collections.Generic
+@using Ams.Media.Web.Dto
+@model IEnumerable<ClientAddressDto>
+
+@{
+    var routeAction = ViewContext?.RouteData?.Values["action"]?.ToString() ?? "";
+
+    var clientRow = ViewBag.Client as ClientRow;
+    var addressTypes = (IEnumerable<SetupTypeDto>?)ViewBag.AddressTypes ?? Enumerable.Empty<SetupTypeDto>();
+    var selectedType = ViewBag.SelectedType as int?;
+
+    var modelFirst = Model?.FirstOrDefault();
+    long effectiveClientId = clientRow?.ClientId ?? (modelFirst?.ClientId ?? 0);
+
+    ViewData["Title"] = "Client Addresses";
+    var startDefault = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+    var endDefault = new DateTime(startDefault.Year + 3, 12, 31);
+
+    var isEditing = string.Equals(routeAction, "AddressEdit", StringComparison.OrdinalIgnoreCase)
+                    && (Model?.Count() ?? 0) == 1;
+    var edit = isEditing ? modelFirst : null;
+
+    var clientTitle = clientRow != null
+        ? $"{clientRow.ClientId} — {clientRow.Description}"
+        : (effectiveClientId > 0 ? $"Client #{effectiveClientId}" : "Client");
+}
+
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="mb-0">@ViewData["Title"] <small class="text-muted">· @clientTitle</small></h4>
+        <a asp-controller="Client" asp-action="App" class="btn btn-outline-secondary btn-sm">Back to Client</a>
+    </div>
+
+    @* ฟิลเตอร์ AddressType *@
+    <form class="row gy-2 gx-2 align-items-end mb-3" method="get" asp-controller="Client" asp-action="Address" asp-route-id="@((int)effectiveClientId)">
+        <div class="col-auto">
+            <label class="form-label">Filter by Type</label>
+            <select name="type" class="form-select form-select-sm">
+                <option value="" selected="@(selectedType is null ? "selected" : null)">All</option>
+                @foreach (var t in addressTypes)
+                {
+                    <option value="@t.SetupTypeCode" selected="@(selectedType == t.SetupTypeCode ? "selected" : null)">
+                        @t.SetupTypeName (@t.SetupTypeCode)
+                    </option>
+                }
+            </select>
+        </div>
+        <div class="col-auto">
+            <button class="btn btn-primary btn-sm" type="submit">Apply</button>
+        </div>
+    </form>
+
+    @if (clientRow is not null)
+    {
+        <div class="alert alert-info py-2 small mb-3">
+            <div><strong>Client:</strong> @clientRow.ClientId — @clientRow.Description (@clientRow.ClientPrefix)</div>
+        </div>
+    }
+
+    @* ===================== EDIT FORM ===================== *@
+    @if (isEditing && edit is not null)
+    {
+        <form asp-controller="Client"
+              asp-action="AddressUpdate"
+              asp-route-clientId="@((int)effectiveClientId)"
+              asp-route-addressType="@edit.AddressType"
+              asp-route-start="@edit.StartDate.ToString("yyyy-MM-dd")"
+              method="post"
+              class="card shadow-sm p-3 mb-3">
+            @Html.AntiForgeryToken()
+            <h6 class="mb-3">Edit Address</h6>
+
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Address Type</label>
+                    <select name="AddressType" class="form-select" disabled>
+                        @foreach (var it in addressTypes)
+                        {
+                            <option value="@it.SetupTypeCode"
+                                    selected="@(it.SetupTypeCode == edit.AddressType ? "selected" : null)">
+                                @it.SetupTypeName (@it.SetupTypeCode)
+                            </option>
+                        }
+                    </select>
+                    <div class="form-text">ประเภทเป็นคีย์ เปลี่ยนที่นี่ไม่ได้</div>
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label">Start Date</label>
+                    <input class="form-control" name="StartDate" value="@edit.StartDate.ToString("dd/MM/yyyy")" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">End Date</label>
+                    <input class="form-control" name="EndDate" value="@(edit.EndDate is DateTime ed ? ed.ToString("dd/MM/yyyy") : "")" />
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label">Title</label>
+                    <input class="form-control" name="AddressTitle" maxlength="255" value="@edit.AddressTitle" />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Address Name</label>
+                    <input class="form-control" name="AddressName" maxlength="255" value="@edit.AddressName" />
+                </div>
+
+                <div class="col-12">
+                    <label class="form-label">Address 01</label>
+                    <textarea class="form-control" name="Address01" rows="2" maxlength="255">@edit.Address01</textarea>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Address 02</label>
+                    <input class="form-control" name="Address02" maxlength="255" value="@edit.Address02" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Address 03</label>
+                    <input class="form-control" name="Address03" maxlength="255" value="@edit.Address03" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Address 04</label>
+                    <input class="form-control" name="Address04" maxlength="255" value="@edit.Address04" />
+                </div>
+            </div>
+
+            <hr class="my-3" />
+            <div class="d-flex justify-content-end gap-2">
+                <button type="submit" class="btn btn-primary">Save</button>
+                <a asp-controller="Client" asp-action="Address" asp-route-id="@((int)effectiveClientId)" class="btn btn-outline-secondary">Cancel</a>
+            </div>
+        </form>
+    }
+
+    @* ===================== LIST ===================== *@
+    @await Html.PartialAsync("_AddressList", Model)
+
+    @* ===================== NEW FORM ===================== *@
+    <div id="addrNewForm" class="collapse">
+        <form asp-controller="Client"
+              asp-action="AddressCreate"
+              asp-route-clientId="@((int)effectiveClientId)"
+              method="post"
+              class="card shadow-sm p-3">
+            @Html.AntiForgeryToken()
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Address Type</label>
+                    <select name="AddressType" class="form-select" required>
+                        @foreach (var it in addressTypes)
+                        {
+                            <option value="@it.SetupTypeCode"
+                                    selected="@( (selectedType ?? 1) == it.SetupTypeCode ? "selected" : null )">
+                                @it.SetupTypeName (@it.SetupTypeCode)
+                            </option>
+                        }
+                    </select>
+                    <div class="form-text">เลือกเฉพาะประเภทที่ระบบกำหนด</div>
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label">Start Date</label>
+                    <input class="form-control" name="StartDate" value="@DateTime.Today.ToString("dd/MM/yyyy")" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">End Date</label>
+                    <input class="form-control" name="EndDate" value="@endDefault.ToString("dd/MM/yyyy")" />
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label">Title</label>
+                    <input class="form-control" name="AddressTitle" maxlength="255" />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Address Name</label>
+                    <input class="form-control" name="AddressName" maxlength="255" />
+                </div>
+
+                <div class="col-12">
+                    <label class="form-label">Address 01</label>
+                    <textarea class="form-control" name="Address01" rows="2" maxlength="255"></textarea>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Address 02</label>
+                    <input class="form-control" name="Address02" maxlength="255" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Address 03</label>
+                    <input class="form-control" name="Address03" maxlength="255" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Address 04</label>
+                    <input class="form-control" name="Address04" maxlength="255" />
+                </div>
+            </div>
+
+            <hr class="my-3" />
+            <div class="d-flex justify-content-end gap-2">
+                <button type="submit" class="btn btn-primary">Save Address</button>
+                <button type="button" class="btn btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#addrNewForm">Cancel</button>
+            </div>
+        </form>
+    </div>
+
+    @if (TempData["AddrError"] is string err && !string.IsNullOrWhiteSpace(err))
+    {
+        <div class="alert alert-warning mt-3">@err</div>
+    }
+</div>
